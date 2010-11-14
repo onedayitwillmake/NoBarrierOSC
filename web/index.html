@@ -11,16 +11,12 @@
     <style>
       #touchArea {width: 100%, height: 100%; overflow: auto;  border: 1px solid #eee; font: 11px Helvetica, Arial; }
     </style>
-
-   	<script src="http://code.jquery.com/jquery-1.4.3.min.js"></script>
-   	<script src="/json.js"></script> <!-- for ie -->
-  	<script src="/socket.io/socket.io.js"></script>
-  </head>
+    <script data-main="js/main.js" src="js/require-jquery-1.4.3.js"></script>  </head>
   <body>
 
     <script>
-		var socket = new io.Socket(null, {port: 1234});
-
+		//var socket = new io.Socket(null, {port: 1234});
+        var socket = {};
 		socket.connect();
 		socket.on('message', function(obj)
 		{
@@ -41,7 +37,7 @@
 			else if ('message' in obj)
 				el.innerHTML = '<b>' + esc(obj.message[0]) + ':</b> ' + esc(obj.message[1]);
 			*/
-		};
+		}
 
 		function send()
 		{
@@ -52,12 +48,12 @@
 			handleIncomingMessage({ message: ['you', val] });
 			// Clear typing area
 			document.getElementById('text').value = '';
-		};
+		}
 
 		// Escape messages
 		function esc(msg) {
 			return msg.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-		};
+		}
 
 		function onDocumentReady()
 		{
