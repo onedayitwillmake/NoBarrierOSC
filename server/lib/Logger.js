@@ -15,10 +15,12 @@ Version:
 */
 
 var sys = require('sys');
-var BISON = require('./bison');
+var BISON = require('../../web/js/lib/bison');
+require('../../web/js/lib/Class');
 
-(function(){
-	this.Logger = Class.extend(
+var init = function()
+{
+	return Class.extend(
 	{
 		init: function(aTarget)
 		{
@@ -96,6 +98,14 @@ var BISON = require('./bison');
 		    } else {
 		        sys.print('\x1b[u\n');
 		    }
-		},
+		}
 	});
-})();
+}
+
+if (typeof window === 'undefined') {
+	require('../../web/js/lib/Class');
+	exports.Class= init();
+} else {
+
+	define(['lib/Class','lib/bison'], init);
+}
