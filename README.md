@@ -2,7 +2,7 @@ NoBarrierOSC
 ============
 #### Everyone interact!
 
-`NoBarrierOSC` is a Node.js server (using a a set of projects mangled together) that allows all users on pageto send OSC messages to any listening application, and each other via any webkit basedbrowser via a `Node.js` webserver.
+`NoBarrierOSC` is a Node.js / Websocket server (using a a set of projects mangled together) that allows all users on arbitrary webpage send OSC messages to any listening application, and each other via any webkit basedbrowser.
 
 ### Credits
 
