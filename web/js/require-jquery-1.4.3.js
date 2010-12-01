@@ -30,7 +30,7 @@ var require, define;
 
     function isFunction(it) {
         return ostring.call(it) === "[object Function]";
-    } 
+    }
 
     //Check for an existing version of require. If so, then exit out. Only allow
     //one version of require to be active in a page. However, allow for a require
@@ -43,8 +43,29 @@ var require, define;
             cfg = require;
         }
     }
-    
-    
+
+        /**
+     * Calls a method on a plugin. The obj object should have two property,
+     * name: the name of the method to call on the plugin
+     * args: the arguments to pass to the plugin method.
+     */
+    function callPlugin(prefix, context, obj) {
+        //Call the plugin, or load it.
+        var plugin = s.plugins.defined[prefix], waiting;
+        if (plugin) {
+            plugin[obj.name].apply(null, obj.args);
+        } else {
+            //Put the call in the waiting call BEFORE requiring the module,
+            //since the require could be synchronous in some environments,
+            //like builds
+            waiting = s.plugins.waiting[prefix] || (s.plugins.waiting[prefix] = []);
+            waiting.push(obj);
+
+            //Load the module
+            req(["require/" + prefix], context.contextName);
+        }
+    }
+
     /**
      * Convenience method to call main for a require.def call that was put on
      * hold in the defQueue.
@@ -202,9 +223,6 @@ var require, define;
      * @param {Error} err the error object.
      */
     req.onError = function (err) {
-
-		console.log('ABC');
-		console.log(err)   ;
         throw err;
     };
 
@@ -220,6 +238,7 @@ var require, define;
 
         //Allow for anonymous functions
         if (typeof name !== 'string') {
+
             //Adjust args appropriately
             contextName = callback;
             callback = deps;
@@ -229,14 +248,17 @@ var require, define;
 
         //This module may not have dependencies
         if (!req.isArray(deps)) {
+
             contextName = callback;
             callback = deps;
             deps = [];
         }
 
+
         //If no name, and callback is a function, then figure out if it a
         //CommonJS thing with dependencies.
         if (!name && !deps.length && req.isFunction(callback)) {
+
             //Remove comments from the callback string,
             //look for require calls, and pull them into the dependencies.
             callback
@@ -298,7 +320,19 @@ var require, define;
         context = s.contexts[contextName];
 
         if (name) {
-            
+                        // Pull off any plugin prefix.
+            index = name.indexOf("!");
+            if (index !== -1) {
+                pluginPrefix = name.substring(0, index);
+                name = name.substring(index + 1, name.length);
+            } else {
+                //Could be that the plugin name should be auto-applied.
+                //Used by i18n plugin to enable anonymous i18n modules, but
+                //still associating the auto-generated name with the i18n plugin.
+                pluginPrefix = context.defPlugin[name];
+            }
+
+
             //If module already defined for context, or already waiting to be
             //evaluated, leave.
             waitingName = context.waiting[name];
@@ -331,7 +365,7 @@ var require, define;
             newContext = {
                 contextName: contextName,
                 config: {
-                    waitSeconds: 15,
+                    waitSeconds: 7,
                     baseUrl: s.baseUrl || "./",
                     paths: {},
                     packages: {}
@@ -350,7 +384,10 @@ var require, define;
                 modifiers: {}
             };
 
-            
+                        if (s.plugins.newContext) {
+                s.plugins.newContext(newContext);
+            }
+
             context = s.contexts[contextName] = newContext;
         }
 
@@ -425,7 +462,7 @@ var require, define;
             if (config.ready) {
                 req.ready(config.ready);
             }
-            
+
             //If it is just a config block, nothing else,
             //then return.
             if (!deps) {
@@ -490,7 +527,13 @@ var require, define;
         }
 
         //If a pluginPrefix is available, call the plugin, or load it.
-        
+                if (pluginPrefix) {
+            callPlugin(pluginPrefix, context, {
+                name: "require",
+                args: [name, deps, callback, context]
+            });
+        }
+
         //Hold on to the module until a script load or other adapter has finished
         //evaluating the whole file. This helps when a file has more than one
         //module in it -- dependencies are not traced and fetched until the whole
@@ -528,6 +571,11 @@ var require, define;
         ctxName: defContextName,
         contexts: {},
         paused: [],
+                plugins: {
+            defined: {},
+            callbacks: {},
+            waiting: {}
+        },
                 //Stores a list of URLs that should not get async script tag treatment.
         skipAsync: {},
         isBrowser: isBrowser,
@@ -548,7 +596,75 @@ var require, define;
         }
     }
 
-    
+        /**
+     * Sets up a plugin callback name. Want to make it easy to test if a plugin
+     * needs to be called for a certain lifecycle event by testing for
+     * if (s.plugins.onLifeCyleEvent) so only define the lifecycle event
+     * if there is a real plugin that registers for it.
+     */
+    function makePluginCallback(name, returnOnTrue) {
+        var cbs = s.plugins.callbacks[name] = [];
+        s.plugins[name] = function () {
+            for (var i = 0, cb; (cb = cbs[i]); i++) {
+                if (cb.apply(null, arguments) === true && returnOnTrue) {
+                    return true;
+                }
+            }
+            return false;
+        };
+    }
+
+    /**
+     * Registers a new plugin for require.
+     */
+    req.plugin = function (obj) {
+        var i, prop, call, prefix = obj.prefix, cbs = s.plugins.callbacks,
+            waiting = s.plugins.waiting[prefix], generics,
+            defined = s.plugins.defined, contexts = s.contexts, context;
+
+        //Do not allow redefinition of a plugin, there may be internal
+        //state in the plugin that could be lost.
+        if (defined[prefix]) {
+            return req;
+        }
+
+        //Save the plugin.
+        defined[prefix] = obj;
+
+        //Set up plugin callbacks for methods that need to be generic to
+        //require, for lifecycle cases where it does not care about a particular
+        //plugin, but just that some plugin work needs to be done.
+        generics = ["newContext", "isWaiting", "orderDeps"];
+        for (i = 0; (prop = generics[i]); i++) {
+            if (!s.plugins[prop]) {
+                makePluginCallback(prop, prop === "isWaiting");
+            }
+            cbs[prop].push(obj[prop]);
+        }
+
+        //Call newContext for any contexts that were already created.
+        if (obj.newContext) {
+            for (prop in contexts) {
+                if (!(prop in empty)) {
+                    context = contexts[prop];
+                    obj.newContext(context);
+                }
+            }
+        }
+
+        //If there are waiting requests for a plugin, execute them now.
+        if (waiting) {
+            for (i = 0; (call = waiting[i]); i++) {
+                if (obj[call.name]) {
+                    obj[call.name].apply(null, call.args);
+                }
+            }
+            delete s.plugins.waiting[prefix];
+        }
+
+        return req;
+    };
+
     /**
      * As of jQuery 1.4.3, it supports a readyWait property that will hold off
      * calling jQuery ready callbacks until all scripts are loaded. Be sure
@@ -570,7 +686,7 @@ var require, define;
                     context.defined.jquery = $;
                 }
 
-                //Make sure 
+                //Make sure
                 if (context.scriptCount) {
                     $.readyWait += 1;
                     context.jQueryIncremented = true;
@@ -587,7 +703,8 @@ var require, define;
      * @param {Object} context the context object
      */
     req.completeLoad = function (moduleName, context) {
-    	console.log('module name', moduleName);
+		console.log('module name:', moduleName );
+//		debugger;
         //If there is a waiting require.def call
         var args;
         while (defQueue.length) {
@@ -647,6 +764,10 @@ var require, define;
         var i, dep;
 
         if (pluginPrefix) {
+                        callPlugin(pluginPrefix, context, {
+                name: "checkDeps",
+                args: [name, deps, context]
+            });
                     } else {
             for (i = 0; (dep = deps[i]); i++) {
                 if (!context.specified[dep.fullName]) {
@@ -657,6 +778,10 @@ var require, define;
 
                     //If a plugin, call its load method.
                     if (dep.prefix) {
+                                                callPlugin(dep.prefix, context, {
+                            name: "load",
+                            args: [dep.name, context.contextName]
+                        });
                                             } else {
                         req.load(dep.name, context.contextName);
                     }
@@ -734,7 +859,7 @@ var require, define;
             }
         }
     };
-    
+
     req.isArray = function (it) {
         return ostring.call(it) === "[object Array]";
     };
@@ -875,7 +1000,7 @@ var require, define;
      * Splits a name into a possible plugin prefix and
      * the module name. If baseName is provided it will
      * also normalize the name via require.normalizeName()
-     * 
+     *
      * @param {String} name the module name
      * @param {String} [baseName] base name that name is
      * relative to.
@@ -954,9 +1079,13 @@ var require, define;
             url = syms.join("/") + (ext || ".js");
             url = (url.charAt(0) === '/' || url.match(/^\w+:/) ? "" : config.baseUrl) + url;
         }
-        return config.urlArgs ? url +
+
+		var finalURL = config.urlArgs ? url +
                                 ((url.indexOf('?') === -1 ? '?' : '&') +
                                  config.urlArgs) : url;
+
+		finalURL += "?preventCache="+new Date().getTime();
+		return finalURL;
     };
 
     /**
@@ -974,7 +1103,8 @@ var require, define;
                 modifiers = context.modifiers, waiting, noLoads = "",
                 hasLoadedProp = false, stillLoading = false, prop,
 
-                
+                                pIsWaiting = s.plugins.isWaiting, pOrderDeps = s.plugins.orderDeps,
+
                 i, module, allDone, loads, loadArgs, err;
 
         //If already doing a checkLoaded call,
@@ -1023,6 +1153,7 @@ var require, define;
 
         //Check for exit conditions.
         if (!hasLoadedProp && !waiting.length
+                        && (!pIsWaiting || !pIsWaiting(context))
                        ) {
             //If the loaded object had no items, then the rest of
             //the work below does not need to be done.
@@ -1053,7 +1184,12 @@ var require, define;
         context.waiting = [];
         context.loaded = {};
 
-        
+                //Call plugins to order their dependencies, do their
+        //module definitions.
+        if (pOrderDeps) {
+            pOrderDeps(context);
+        }
+
                 //Before defining the modules, give priority treatment to any modifiers
         //for modules that are already defined.
         for (prop in modifiers) {
@@ -1063,7 +1199,7 @@ var require, define;
                 }
             }
         }
-        
+
         //Define the modules, doing a depth first search.
         for (i = 0; (module = waiting[i]); i++) {
             req.exec(module, {}, waiting, context);
@@ -1073,6 +1209,7 @@ var require, define;
         context.isCheckLoaded = false;
 
         if (context.waiting.length
+                        || (pIsWaiting && pIsWaiting(context))
                        ) {
             //More things in this context are waiting to load. They were probably
             //added while doing the work above in checkLoaded, calling module
@@ -1161,12 +1298,12 @@ var require, define;
 
     /**
      * Executes the modules in the correct order.
-     * 
+     *
      * @private
      */
     req.exec = function (module, traced, waiting, context) {
         //Some modules are just plain script files, abddo not have a formal
-        //module definition, 
+        //module definition,
         if (!module) {
             //Returning undefined for Spidermonky strict checking in Komodo
             return undefined;
@@ -1243,7 +1380,7 @@ var require, define;
 
                 //Execute modifiers, if they exist.
         req.execModifiers(name, traced, waiting, context);
-        
+
         return ret;
     };
 
@@ -1283,7 +1420,7 @@ var require, define;
             delete modifiers[target];
         }
     };
-    
+
     /**
      * callback for script loads, used to check status of loading.
      *
@@ -1405,10 +1542,10 @@ var require, define;
             rePkg = cfg.baseUrlMatch;
         } else {
                         rePkg = /(requireplugins-|require-)?jquery[\-\d\.]*(min)?\.js(\W|$)/i;
-            
-            
-            
-            
+
+
+
+
                     }
 
         for (i = scripts.length - 1; i > -1 && (script = scripts[i]); i--) {
@@ -1554,7 +1691,7 @@ var require, define;
         }
     }
     //****** END page load functionality ****************
-    
+
     //Set up default context. If require was a configuration object, use that as base config.
     req(cfg);
 
@@ -1571,6 +1708,782 @@ var require, define;
             resume(ctx);
         }, 0);
     }
+}());
+
+/**
+ * @license RequireJS i18n Copyright (c) 2010, The Dojo Foundation All Rights Reserved.
+ * Available via the MIT or new BSD license.
+ * see: http://github.com/jrburke/requirejs for details
+ */
+/*jslint regexp: false, nomen: false, plusplus: false */
+/*global require: false, navigator: false */
+
+
+/**
+ * This plugin handles i18n! prefixed modules. It does the following:
+ *
+ * 1) A regular module can have a dependency on an i18n bundle, but the regular
+ * module does not want to specify what locale to load. So it just specifies
+ * the top-level bundle, like "i18n!nls/colors".
+ *
+ * This plugin will load the i18n bundle at nls/colors, see that it is a root/master
+ * bundle since it does not have a locale in its name. It will then try to find
+ * the best match locale available in that master bundle, then request all the
+ * locale pieces for that best match locale. For instance, if the locale is "en-us",
+ * then the plugin will ask for the "en-us", "en" and "root" bundles to be loaded
+ * (but only if they are specified on the master bundle).
+ *
+ * Once all the bundles for the locale pieces load, then it mixes in all those
+ * locale pieces into each other, then finally sets the context.defined value
+ * for the nls/colors bundle to be that mixed in locale.
+ *
+ * 2) A regular module specifies a specific locale to load. For instance,
+ * i18n!nls/fr-fr/colors. In this case, the plugin needs to load the master bundle
+ * first, at nls/colors, then figure out what the best match locale is for fr-fr,
+ * since maybe only fr or just root is defined for that locale. Once that best
+ * fit is found, all of its locale pieces need to have their bundles loaded.
+ *
+ * Once all the bundles for the locale pieces load, then it mixes in all those
+ * locale pieces into each other, then finally sets the context.defined value
+ * for the nls/fr-fr/colors bundle to be that mixed in locale.
+ */
+(function () {
+    //regexp for reconstructing the master bundle name from parts of the regexp match
+    //nlsRegExp.exec("foo/bar/baz/nls/en-ca/foo") gives:
+    //["foo/bar/baz/nls/en-ca/foo", "foo/bar/baz/nls/", "/", "/", "en-ca", "foo"]
+    //nlsRegExp.exec("foo/bar/baz/nls/foo") gives:
+    //["foo/bar/baz/nls/foo", "foo/bar/baz/nls/", "/", "/", "foo", ""]
+    //so, if match[5] is blank, it means this is the top bundle definition.
+    var nlsRegExp = /(^.*(^|\/)nls(\/|$))([^\/]*)\/?([^\/]*)/,
+        empty = {};
+
+    function getWaiting(name, context) {
+        var nlswAry = context.nlsWaiting;
+        return nlswAry[name] ||
+               //Push a new waiting object on the nlsWaiting array, but also put
+               //a shortcut lookup by name to the object on the array.
+               (nlswAry[name] = nlswAry[(nlswAry.push({ _name: name}) - 1)]);
+    }
+
+    /**
+     * Makes sure all the locale pieces are loaded, and finds the best match
+     * for the requested locale.
+     */
+    function resolveLocale(masterName, bundle, locale, context) {
+        //Break apart the locale to get the parts.
+        var i, parts, toLoad, nlsw, loc, val, bestLoc = "root";
+
+        parts = locale.split("-");
+
+        //Now see what bundles exist for each country/locale.
+        //Want to walk up the chain, so if locale is en-us-foo,
+        //look for en-us-foo, en-us, en, then root.
+        toLoad = [];
+
+        nlsw = getWaiting(masterName, context);
+
+        for (i = parts.length; i > -1; i--) {
+            loc = i ? parts.slice(0, i).join("-") : "root";
+            val = bundle[loc];
+            if (val) {
+                //Store which bundle to use for the default bundle definition.
+                if (locale === context.config.locale && !nlsw._match) {
+                    nlsw._match = loc;
+                }
+
+                //Store the best match for the target locale
+                if (bestLoc === "root") {
+                    bestLoc = loc;
+                }
+
+                //Track that the locale needs to be resolved with its parts.
+                //Mark what locale should be used when resolving.
+                nlsw[loc] = loc;
+
+                //If locale value is true, it means it is a resource that
+                //needs to be loaded. Track it to load if it has not already
+                //been asked for.
+                if (val === true) {
+                    //split off the bundl name from master name and insert the
+                    //locale before the bundle name. So, if masterName is
+                    //some/path/nls/colors, then the locale fr-fr's bundle name should
+                    //be some/path/nls/fr-fr/colors
+                    val = masterName.split("/");
+                    val.splice(-1, 0, loc);
+                    val = val.join("/");
+
+                    if (!context.specified[val] && !(val in context.loaded) && !context.defined[val]) {
+                        context.defPlugin[val] = 'i18n';
+                        toLoad.push(val);
+                    }
+                }
+            }
+        }
+
+        //If locale was not an exact match, store the closest match for it.
+        if (bestLoc !== locale) {
+            if (context.defined[bestLoc]) {
+                //Already got it. Easy peasy lemon squeezy.
+                context.defined[locale] = context.defined[bestLoc];
+            } else {
+                //Need to wait for things to load then define it.
+                nlsw[locale] = bestLoc;
+            }
+        }
+
+        //Load any bundles that are still needed.
+        if (toLoad.length) {
+            require(toLoad, context.contextName);
+        }
+    }
+
+    require.plugin({
+        prefix: "i18n",
+
+        /**
+         * This callback is prefix-specific, only gets called for this prefix
+         */
+        require: function (name, deps, callback, context) {
+            var i, match, nlsw, bundle, master, toLoad, obj = context.defined[name];
+
+            //All i18n modules must match the nls module name structure.
+            match = nlsRegExp.exec(name);
+            //If match[5] is blank, it means this is the top bundle definition,
+            //so it does not have to be handled. Only deal with ones that have a locale
+            //(a match[4] value but no match[5])
+            if (match[5]) {
+                master = match[1] + match[5];
+
+                //Track what locale bundle need to be generated once all the modules load.
+                nlsw = getWaiting(master, context);
+                nlsw[match[4]] = match[4];
+
+                bundle = context.nls[master];
+                if (!bundle) {
+                    //No master bundle yet, ask for it.
+                    context.defPlugin[master] = 'i18n';
+                    require([master], context.contextName);
+                    bundle = context.nls[master] = {};
+                }
+                //For nls modules, the callback is just a regular object,
+                //so save it off in the bundle now.
+                bundle[match[4]] = callback;
+            } else {
+                //Integrate bundle into the nls area.
+                bundle = context.nls[name];
+                if (bundle) {
+                    //A specific locale already started the bundle object.
+                    //Do a mixin (which will not overwrite the locale property
+                    //on the bundle that has the previously loaded locale's info)
+                    require.mixin(bundle, obj);
+                } else {
+                    bundle = context.nls[name] = obj;
+                }
+                context.nlsRootLoaded[name] = true;
+
+                //Make sure there are no locales waiting to be resolved.
+                toLoad = context.nlsToLoad[name];
+                if (toLoad) {
+                    delete context.nlsToLoad[name];
+                    for (i = 0; i < toLoad.length; i++) {
+                        resolveLocale(name, bundle, toLoad[i], context);
+                    }
+                }
+
+                resolveLocale(name, bundle, context.config.locale, context);
+            }
+        },
+
+        /**
+         * Called when a new context is defined. Use this to store
+         * context-specific info on it.
+         */
+        newContext: function (context) {
+            require.mixin(context, {
+                nlsWaiting: [],
+                nls: {},
+                nlsRootLoaded: {},
+                nlsToLoad: {}
+            });
+            if (!context.config.locale) {
+                context.config.locale = typeof navigator === "undefined" ? "root" :
+                        (navigator.language || navigator.userLanguage || "root").toLowerCase();
+            }
+        },
+
+        /**
+         * Called when a dependency needs to be loaded.
+         */
+        load: function (name, contextName) {
+            //Make sure the root bundle is loaded, to check if we can support
+            //loading the requested locale, or if a different one needs
+            //to be chosen.
+            var masterName, context = require.s.contexts[contextName], bundle,
+                match = nlsRegExp.exec(name), locale = match[4];
+
+            //If match[5] is blank, it means this is the top bundle definition,
+            //so it does not have to be handled. Only deal with ones that have a locale
+            //(a match[4] value but no match[5])
+            if (match[5]) {
+                //locale-specific bundle
+                masterName = match[1] + match[5];
+                bundle = context.nls[masterName];
+                if (context.nlsRootLoaded[masterName] && bundle) {
+                    resolveLocale(masterName, bundle, locale, context);
+                } else {
+                    //Store this locale to figure out after masterName is loaded and load masterName.
+                    (context.nlsToLoad[masterName] || (context.nlsToLoad[masterName] = [])).push(locale);
+                    context.defPlugin[masterName] = 'i18n';
+                    require([masterName], contextName);
+                }
+            } else {
+                //Top-level bundle. Just call regular load, if not already loaded
+                if (!context.nlsRootLoaded[name]) {
+                    context.defPlugin[name] = 'i18n';
+                    require.load(name, contextName);
+                }
+            }
+        },
+
+        /**
+         * Called when the dependencies of a module are checked.
+         */
+        checkDeps: function (name, deps, context) {
+            //i18n bundles are always defined as objects for their "dependencies",
+            //and that object is already processed in the require method, no need to
+            //do work in here.
+        },
+
+        /**
+         * Called to determine if a module is waiting to load.
+         */
+        isWaiting: function (context) {
+            return !!context.nlsWaiting.length;
+        },
+
+        /**
+         * Called when all modules have been loaded.
+         */
+        orderDeps: function (context) {
+            //Clear up state since further processing could
+            //add more things to fetch.
+            var i, j, master, msWaiting, bundle, parts, moduleSuffix, mixed,
+                modulePrefix, loc, defLoc, locPart, nlsWaiting = context.nlsWaiting,
+                bestFit;
+            context.nlsWaiting = [];
+            context.nlsToLoad = {};
+
+            //First, properly mix in any nls bundles waiting to happen.
+            for (i = 0; (msWaiting = nlsWaiting[i]); i++) {
+                //Each property is a master bundle name.
+                master = msWaiting._name;
+                bundle = context.nls[master];
+                defLoc = null;
+
+                //Create the module name parts from the master name. So, if master
+                //is foo/nls/bar, then the parts should be prefix: "foo/nls",
+                // suffix: "bar", and the final locale's module name will be foo/nls/locale/bar
+                parts = master.split("/");
+                modulePrefix = parts.slice(0, parts.length - 1).join("/");
+                moduleSuffix = parts[parts.length - 1];
+                //Cycle through the locale props on the waiting object and combine
+                //the locales together.
+                for (loc in msWaiting) {
+                    if (loc !== "_name" && !(loc in empty)) {
+                        if (loc === "_match") {
+                            //Found default locale to use for the top-level bundle name.
+                            defLoc = msWaiting[loc];
+
+                        } else if (msWaiting[loc] !== loc) {
+                            //A "best fit" locale, store it off to the end and handle
+                            //it at the end by just assigning the best fit value, since
+                            //after this for loop, the best fit locale will be defined.
+                            (bestFit || (bestFit = {}))[loc] = msWaiting[loc];
+                        } else {
+                            //Mix in the properties of this locale together.
+                            //Split the locale into pieces.
+                            mixed = {};
+                            parts = loc.split("-");
+                            for (j = parts.length; j > 0; j--) {
+                                locPart = parts.slice(0, j).join("-");
+                                if (locPart !== "root" && bundle[locPart]) {
+                                    require.mixin(mixed, bundle[locPart]);
+                                }
+                            }
+                            if (bundle.root) {
+                                require.mixin(mixed, bundle.root);
+                            }
+
+                            context.defined[modulePrefix + "/" + loc + "/" + moduleSuffix] = mixed;
+                        }
+                    }
+                }
+
+                //Finally define the default locale. Wait to the end of the property
+                //loop above so that the default locale bundle has been properly mixed
+                //together.
+                context.defined[master] = context.defined[modulePrefix + "/" + defLoc + "/" + moduleSuffix];
+
+                //Handle any best fit locale definitions.
+                if (bestFit) {
+                    for (loc in bestFit) {
+                        if (!(loc in empty)) {
+                            context.defined[modulePrefix + "/" + loc + "/" + moduleSuffix] = context.defined[modulePrefix + "/" + bestFit[loc] + "/" + moduleSuffix];
+                        }
+                    }
+                }
+            }
+        }
+    });
+}());
+/**
+ * @license RequireJS text Copyright (c) 2010, The Dojo Foundation All Rights Reserved.
+ * Available via the MIT or new BSD license.
+ * see: http://github.com/jrburke/requirejs for details
+ */
+/*jslint regexp: false, nomen: false, plusplus: false */
+/*global require: false, XMLHttpRequest: false, ActiveXObject: false */
+
+
+(function () {
+    var progIds = ['Msxml2.XMLHTTP', 'Microsoft.XMLHTTP', 'Msxml2.XMLHTTP.4.0'],
+        xmlRegExp = /^\s*<\?xml(\s)+version=[\'\"](\d)*.(\d)*[\'\"](\s)*\?>/im,
+        bodyRegExp = /<body[^>]*>\s*([\s\S]+)\s*<\/body>/im;
+
+    if (!require.textStrip) {
+        require.textStrip = function (text) {
+            //Strips <?xml ...?> declarations so that external SVG and XML
+            //documents can be added to a document without worry. Also, if the string
+            //is an HTML document, only the part inside the body tag is returned.
+            if (text) {
+                text = text.replace(xmlRegExp, "");
+                var matches = text.match(bodyRegExp);
+                if (matches) {
+                    text = matches[1];
+                }
+            } else {
+                text = "";
+            }
+            return text;
+        };
+    }
+
+    //Upgrade require to add some methods for XHR handling. But it could be that
+    //this require is used in a non-browser env, so detect for existing method
+    //before attaching one.
+    if (!require.getXhr) {
+        require.getXhr = function () {
+            //Would love to dump the ActiveX crap in here. Need IE 6 to die first.
+            var xhr, i, progId;
+            if (typeof XMLHttpRequest !== "undefined") {
+                return new XMLHttpRequest();
+            } else {
+                for (i = 0; i < 3; i++) {
+                    progId = progIds[i];
+                    try {
+                        xhr = new ActiveXObject(progId);
+                    } catch (e) {}
+
+                    if (xhr) {
+                        progIds = [progId];  // so faster next time
+                        break;
+                    }
+                }
+            }
+
+            if (!xhr) {
+                throw new Error("require.getXhr(): XMLHttpRequest not available");
+            }
+
+            return xhr;
+        };
+    }
+
+    if (!require.fetchText) {
+        require.fetchText = function (url, callback) {
+            var xhr = require.getXhr();
+            xhr.open('GET', url, true);
+            xhr.onreadystatechange = function (evt) {
+                //Do not explicitly handle errors, those should be
+                //visible via console output in the browser.
+                if (xhr.readyState === 4) {
+                    callback(xhr.responseText);
+                }
+            };
+            xhr.send(null);
+        };
+    }
+
+    require.plugin({
+        prefix: "text",
+
+        /**
+         * This callback is prefix-specific, only gets called for this prefix
+         */
+        require: function (name, deps, callback, context) {
+            //No-op, require never gets these text items, they are always
+            //a dependency, see load for the action.
+        },
+
+        /**
+         * Called when a new context is defined. Use this to store
+         * context-specific info on it.
+         */
+        newContext: function (context) {
+            require.mixin(context, {
+                text: {},
+                textWaiting: []
+            });
+        },
+
+        /**
+         * Called when a dependency needs to be loaded.
+         */
+        load: function (name, contextName) {
+            //Name has format: some.module!filext!strip!text
+            //The strip and text parts are optional.
+            //if strip is present, then that means only get the string contents
+            //inside a body tag in an HTML string. For XML/SVG content it means
+            //removing the <?xml ...?> declarations so the content can be inserted
+            //into the current doc without problems.
+            //If text is present, it is the actual text of the file.
+            var strip = false, text = null, key, url, index = name.indexOf("."),
+                modName = name.substring(0, index), fullKey,
+                ext = name.substring(index + 1, name.length),
+                context = require.s.contexts[contextName],
+                tWaitAry = context.textWaiting;
+
+            index = ext.indexOf("!");
+            if (index !== -1) {
+                //Pull off the strip arg.
+                strip = ext.substring(index + 1, ext.length);
+                ext = ext.substring(0, index);
+                index = strip.indexOf("!");
+                if (index !== -1 && strip.substring(0, index) === "strip") {
+                    //Pull off the text.
+                    text = strip.substring(index + 1, strip.length);
+                    strip = "strip";
+                } else if (strip !== "strip") {
+                    //strip is actually the inlined text.
+                    text = strip;
+                    strip = null;
+                }
+            }
+            key = modName + "!" + ext;
+            fullKey = strip ? key + "!" + strip : key;
+
+            //Store off text if it is available for the given key and be done.
+            if (text !== null && !context.text[key]) {
+                context.defined[name] = context.text[key] = text;
+                return;
+            }
+
+            //If text is not available, load it.
+            if (!context.text[key] && !context.textWaiting[key] && !context.textWaiting[fullKey]) {
+                //Keep track that the fullKey needs to be resolved, during the
+                //orderDeps stage.
+                if (!tWaitAry[fullKey]) {
+                    tWaitAry[fullKey] = tWaitAry[(tWaitAry.push({
+                        name: name,
+                        key: key,
+                        fullKey: fullKey,
+                        strip: !!strip
+                    }) - 1)];
+                }
+
+                //Load the text.
+                url = require.nameToUrl(modName, "." + ext, contextName);
+                context.loaded[name] = false;
+                require.fetchText(url, function (text) {
+                    context.text[key] = text;
+                    context.loaded[name] = true;
+                });
+            }
+        },
+
+        /**
+         * Called when the dependencies of a module are checked.
+         */
+        checkDeps: function (name, deps, context) {
+            //No-op, checkDeps never gets these text items, they are always
+            //a dependency, see load for the action.
+        },
+
+        /**
+         * Called to determine if a module is waiting to load.
+         */
+        isWaiting: function (context) {
+            return !!context.textWaiting.length;
+        },
+
+        /**
+         * Called when all modules have been loaded.
+         */
+        orderDeps: function (context) {
+            //Clear up state since further processing could
+            //add more things to fetch.
+            var i, dep, text, tWaitAry = context.textWaiting;
+            context.textWaiting = [];
+            for (i = 0; (dep = tWaitAry[i]); i++) {
+                text = context.text[dep.key];
+                context.defined[dep.name] = dep.strip ? require.textStrip(text) : text;
+            }
+        }
+    });
+}());
+/**
+ * @license RequireJS jsonp Copyright (c) 2010, The Dojo Foundation All Rights Reserved.
+ * Available via the MIT or new BSD license.
+ * see: http://github.com/jrburke/requirejs for details
+ */
+/*jslint nomen: false, plusplus: false */
+/*global require: false, setTimeout: false */
+
+
+(function () {
+    var countId = 0;
+
+    //A place to hold callback functions
+    require._jsonp = {};
+
+    require.plugin({
+        prefix: "jsonp",
+
+        /**
+         * This callback is prefix-specific, only gets called for this prefix
+         */
+        require: function (name, deps, callback, context) {
+            //No-op, require never gets these jsonp items, they are always
+            //a dependency, see load for the action.
+        },
+
+        /**
+         * Called when a new context is defined. Use this to store
+         * context-specific info on it.
+         */
+        newContext: function (context) {
+            require.mixin(context, {
+                jsonpWaiting: []
+            });
+        },
+
+        /**
+         * Called when a dependency needs to be loaded.
+         */
+        load: function (name, contextName) {
+            //Name has format: some/url?param1=value1&callback=?
+            //where the last question mark indicates where the jsonp callback
+            //function name needs to go.
+            var index = name.indexOf("?"),
+                url = name.substring(0, index),
+                params = name.substring(index + 1, name.length),
+                context = require.s.contexts[contextName],
+                data = {
+                    name: name
+                },
+                funcName = "f" + (countId++),
+                head = require.s.head,
+                node = head.ownerDocument.createElement("script");
+
+            //Create JSONP callback function
+            require._jsonp[funcName] = function (value) {
+                data.value = value;
+                context.loaded[name] = true;
+                //Use a setTimeout for cleanup because some older IE versions vomit
+                //if removing a script node while it is being evaluated.
+                setTimeout(function () {
+                    head.removeChild(node);
+                    delete require._jsonp[funcName];
+                }, 15);
+            };
+
+            //Hold on to the data for later dependency resolution in orderDeps.
+            context.jsonpWaiting.push(data);
+
+            //Build up the full JSONP URL
+            url = require.nameToUrl(url, "?", contextName);
+            //nameToUrl call may or may not have placed an ending ? on the URL,
+            //be sure there is one and add the rest of the params.
+            url += (url.indexOf("?") === -1 ? "?" : "") + params.replace("?", "require._jsonp." + funcName);
+
+            context.loaded[name] = false;
+            node.type = "text/javascript";
+            node.charset = "utf-8";
+            node.src = url;
+
+            //Use async so Gecko does not block on executing the script if something
+            //like a long-polling comet tag is being run first. Gecko likes
+            //to evaluate scripts in DOM order, even for dynamic scripts.
+            //It will fetch them async, but only evaluate the contents in DOM
+            //order, so a long-polling script tag can delay execution of scripts
+            //after it. But telling Gecko we expect async gets us the behavior
+            //we want -- execute it whenever it is finished downloading. Only
+            //Helps Firefox 3.6+
+            node.async = true;
+
+            head.appendChild(node);
+        },
+
+        /**
+         * Called when the dependencies of a module are checked.
+         */
+        checkDeps: function (name, deps, context) {
+            //No-op, checkDeps never gets these jsonp items, they are always
+            //a dependency, see load for the action.
+        },
+
+        /**
+         * Called to determine if a module is waiting to load.
+         */
+        isWaiting: function (context) {
+            return !!context.jsonpWaiting.length;
+        },
+
+        /**
+         * Called when all modules have been loaded.
+         */
+        orderDeps: function (context) {
+            //Clear up state since further processing could
+            //add more things to fetch.
+            var i, dep, waitAry = context.jsonpWaiting;
+            context.jsonpWaiting = [];
+            for (i = 0; (dep = waitAry[i]); i++) {
+                context.defined[dep.name] = dep.value;
+            }
+        }
+    });
+}());
+/**
+ * @license RequireJS order Copyright (c) 2010, The Dojo Foundation All Rights Reserved.
+ * Available via the MIT or new BSD license.
+ * see: http://github.com/jrburke/requirejs for details
+ */
+/*jslint nomen: false, plusplus: false */
+/*global require: false, window: false, document: false, setTimeout: false */
+
+
+(function () {
+    //Sadly necessary browser inference due to differences in the way
+    //that browsers load and execute dynamically inserted javascript
+    //and whether the script/cache method works.
+    //Currently, Gecko and Opera do not load/fire onload for scripts with
+    //type="script/cache" but they execute injected scripts in order
+    //unless the 'async' flag is present.
+    var supportsInOrderExecution = ((window.opera && Object.prototype.toString.call(window.opera) === "[object Opera]") ||
+                               //If Firefox 2 does not have to be supported, then
+                               //a better check may be:
+                               //('mozIsLocallyAvailable' in window.navigator)
+                               ("MozAppearance" in document.documentElement.style)),
+        readyRegExp = /^(complete|loaded)$/;
+
+    //Callback used by the type="script/cache" callback that indicates a script
+    //has finished downloading.
+    function scriptCacheCallback(evt) {
+        var node = evt.currentTarget || evt.srcElement, i,
+            context, contextName, moduleName, waiting, cached;
+
+        if (evt.type === "load" || readyRegExp.test(node.readyState)) {
+            //Pull out the name of the module and the context.
+            contextName = node.getAttribute("data-requirecontext");
+            moduleName = node.getAttribute("data-requiremodule");
+            context = require.s.contexts[contextName];
+            waiting = context.orderWaiting;
+            cached = context.orderCached;
+
+            //Mark this cache request as loaded
+            cached[moduleName] = true;
+
+            //Find out how many ordered modules have loaded
+            for (i = 0; cached[waiting[i]]; i++) {}
+            if (i > 0) {
+                require(waiting.splice(0, i), contextName);
+            }
+
+            //If no other order cache items are in the queue, do some cleanup.
+            if (!waiting.length) {
+                context.orderCached = {};
+            }
+
+            //Remove this script tag from the DOM
+            //Use a setTimeout for cleanup because some older IE versions vomit
+            //if removing a script node while it is being evaluated.
+            setTimeout(function () {
+                node.parentNode.removeChild(node);
+            }, 15);
+        }
+    }
+
+    require.plugin({
+        prefix: "order",
+
+        /**
+         * This callback is prefix-specific, only gets called for this prefix
+         */
+        require: function (name, deps, callback, context) {
+            //No-op, require never gets these order items, they are always
+            //a dependency, see load for the action.
+        },
+
+        /**
+         * Called when a new context is defined. Use this to store
+         * context-specific info on it.
+         */
+        newContext: function (context) {
+            require.mixin(context, {
+                orderWaiting: [],
+                orderCached: {}
+            });
+        },
+
+        /**
+         * Called when a dependency needs to be loaded.
+         */
+        load: function (name, contextName) {
+            var context = require.s.contexts[contextName],
+                url = require.nameToUrl(name, null, contextName);
+
+            //Make sure the async attribute is not set for any pathway involving
+            //this script.
+            require.s.skipAsync[url] = true;
+            if (supportsInOrderExecution) {
+                //Just a normal script tag append, but without async attribute
+                //on the script.
+                require([name], contextName);
+            } else {
+                //Credit to LABjs author Kyle Simpson for finding that scripts
+                //with type="script/cache" allow scripts to be downloaded into
+                //browser cache but not executed. Use that
+                //so that subsequent addition of a real type="text/javascript"
+                //tag will cause the scripts to be executed immediately in the
+                //correct order.
+                context.orderWaiting.push(name);
+                context.loaded[name] = false;
+                require.attach(url, contextName, name, scriptCacheCallback, "script/cache");
+            }
+        },
+
+        /**
+         * Called when the dependencies of a module are checked.
+         */
+        checkDeps: function (name, deps, context) {
+            //No-op, checkDeps never gets these order items, they are always
+            //a dependency, see load for the action.
+        },
+
+        /**
+         * Called to determine if a module is waiting to load.
+         */
+        isWaiting: function (context) {
+            return !!context.orderWaiting.length;
+        },
+
+        /**
+         * Called when all modules have been loaded. Not needed for this plugin.
+         * State is reset as part of scriptCacheCallback.
+         */
+        orderDeps: function (context) {
+        }
+    });
 }());
 
 /**
@@ -1651,10 +2564,10 @@ var jQuery = function( selector, context ) {
 
 	// For matching the engine and version of the browser
 	browserMatch,
-	
+
 	// Has the ready events already been bound?
 	readyBound = false,
-	
+
 	// The functions to execute on DOM ready
 	readyList = [],
 
@@ -1668,7 +2581,7 @@ var jQuery = function( selector, context ) {
 	slice = Array.prototype.slice,
 	trim = String.prototype.trim,
 	indexOf = Array.prototype.indexOf,
-	
+
 	// [[Class]] -> type pairs
 	class2type = {};
 
@@ -1687,7 +2600,7 @@ jQuery.fn = jQuery.prototype = {
 			this.length = 1;
 			return this;
 		}
-		
+
 		// The body element only exists once, optimize finding it
 		if ( selector === "body" && !context && document.body ) {
 			this.context = document;
@@ -1726,9 +2639,9 @@ jQuery.fn = jQuery.prototype = {
 						ret = jQuery.buildFragment( [ match[1] ], [ doc ] );
 						selector = (ret.cacheable ? ret.fragment.cloneNode(true) : ret.fragment).childNodes;
 					}
-					
+
 					return jQuery.merge( this, selector );
-					
+
 				// HANDLE: $("#id")
 				} else {
 					elem = document.getElementById( match[2] );
@@ -1821,7 +2734,7 @@ jQuery.fn = jQuery.prototype = {
 
 		if ( jQuery.isArray( elems ) ) {
 			push.apply( ret, elems );
-		
+
 		} else {
 			jQuery.merge( ret, elems );
 		}
@@ -1847,7 +2760,7 @@ jQuery.fn = jQuery.prototype = {
 	each: function( callback, args ) {
 		return jQuery.each( this, callback, args );
 	},
-	
+
 	ready: function( fn ) {
 		// Attach the listeners
 		jQuery.bindReady();
@@ -1865,7 +2778,7 @@ jQuery.fn = jQuery.prototype = {
 
 		return this;
 	},
-	
+
 	eq: function( i ) {
 		return i === -1 ?
 			this.slice( i ) :
@@ -1890,7 +2803,7 @@ jQuery.fn = jQuery.prototype = {
 			return callback.call( elem, i, elem );
 		}));
 	},
-	
+
 	end: function() {
 		return this.prevObject || jQuery(null);
 	},
@@ -1976,14 +2889,14 @@ jQuery.extend({
 
 		return jQuery;
 	},
-	
+
 	// Is the DOM ready to be used? Set to true once it occurs.
 	isReady: false,
 
 	// A counter to track how many items to wait for before
 	// the ready event fires. See #6781
 	readyWait: 1,
-	
+
 	// Handle when the DOM is ready
 	ready: function( wait ) {
 		// A third-party is pushing the ready event forwards
@@ -2024,7 +2937,7 @@ jQuery.extend({
 			}
 		}
 	},
-	
+
 	bindReady: function() {
 		if ( readyBound ) {
 			return;
@@ -2043,7 +2956,7 @@ jQuery.extend({
 		if ( document.addEventListener ) {
 			// Use the handy event callback
 			document.addEventListener( "DOMContentLoaded", DOMContentLoaded, false );
-			
+
 			// A fallback to window.onload, that will always work
 			window.addEventListener( "load", jQuery.ready, false );
 
@@ -2052,7 +2965,7 @@ jQuery.extend({
 			// ensure firing before onload,
 			// maybe late but safe also for iframes
 			document.attachEvent("onreadystatechange", DOMContentLoaded);
-			
+
 			// A fallback to window.onload, that will always work
 			window.attachEvent( "onload", jQuery.ready );
 
@@ -2070,7 +2983,7 @@ jQuery.extend({
 		}
 	},
 
-	// See test/unit/core.js for details concerning isFunction.
+	// See test/unit/JS.js for details concerning isFunction.
 	// Since version 1.3, DOM methods and functions like alert
 	// aren't supported. They return false on IE (#2968).
 	isFunction: function( obj ) {
@@ -2103,20 +3016,20 @@ jQuery.extend({
 		if ( !obj || jQuery.type(obj) !== "object" || obj.nodeType || jQuery.isWindow( obj ) ) {
 			return false;
 		}
-		
+
 		// Not own constructor property must be Object
 		if ( obj.constructor &&
 			!hasOwn.call(obj, "constructor") &&
 			!hasOwn.call(obj.constructor.prototype, "isPrototypeOf") ) {
 			return false;
 		}
-		
+
 		// Own properties are enumerated firstly, so to speed up,
 		// if last one is own, then all properties are own.
-	
+
 		var key;
 		for ( key in obj ) {}
-		
+
 		return key === undefined || hasOwn.call( obj, key );
 	},
 
@@ -2126,11 +3039,11 @@ jQuery.extend({
 		}
 		return true;
 	},
-	
+
 	error: function( msg ) {
 		throw msg;
 	},
-	
+
 	parseJSON: function( data ) {
 		if ( typeof data !== "string" || !data ) {
 			return null;
@@ -2138,7 +3051,7 @@ jQuery.extend({
 
 		// Make sure leading/trailing whitespace is removed (IE can't handle it)
 		data = jQuery.trim( data );
-		
+
 		// Make sure the incoming data is actual JSON
 		// Logic borrowed from http://json.org/json2.js
 		if ( rvalidchars.test(data.replace(rvalidescape, "@")
@@ -2279,7 +3192,7 @@ jQuery.extend({
 			for ( var l = second.length; j < l; j++ ) {
 				first[ i++ ] = second[ j ];
 			}
-		
+
 		} else {
 			while ( second[j] !== undefined ) {
 				first[ i++ ] = second[ j++ ];
@@ -2359,7 +3272,7 @@ jQuery.extend({
 	// The value/s can be optionally by executed if its a function
 	access: function( elems, key, value, exec, fn, pass ) {
 		var length = elems.length;
-	
+
 		// Setting many attributes
 		if ( typeof key === "object" ) {
 			for ( var k in key ) {
@@ -2367,19 +3280,19 @@ jQuery.extend({
 			}
 			return elems;
 		}
-	
+
 		// Setting one attribute
 		if ( value !== undefined ) {
 			// Optionally, function values get executed if exec is true
 			exec = !pass && exec && jQuery.isFunction(value);
-		
+
 			for ( var i = 0; i < length; i++ ) {
 				fn( elems[i], key, exec ? value.call( elems[i], i, fn( elems[i], key ) ) : value, pass );
 			}
-		
+
 			return elems;
 		}
-	
+
 		// Getting an attribute
 		return length ? fn( elems[0], key ) : undefined;
 	},
@@ -2688,7 +3601,7 @@ jQuery.extend({
 	// Please use with caution
 	uuid: 0,
 
-	// Unique for each copy of jQuery on the page	
+	// Unique for each copy of jQuery on the page
 	expando: "jQuery" + jQuery.now(),
 
 	// The following elements throw uncatchable exceptions if you
@@ -3136,7 +4049,7 @@ jQuery.fn.extend({
 						var option = options[ i ];
 
 						// Don't return options that are disabled or in a disabled optgroup
-						if ( option.selected && (jQuery.support.optDisabled ? !option.disabled : option.getAttribute("disabled") === null) && 
+						if ( option.selected && (jQuery.support.optDisabled ? !option.disabled : option.getAttribute("disabled") === null) &&
 								(!option.parentNode.disabled || !jQuery.nodeName( option.parentNode, "optgroup" )) ) {
 
 							// Get the specific value for the option
@@ -3159,7 +4072,7 @@ jQuery.fn.extend({
 				if ( rradiocheck.test( elem.type ) && !jQuery.support.checkOn ) {
 					return elem.getAttribute("value") === null ? "on" : elem.value;
 				}
-				
+
 
 				// Everything else, we just grab the value
 				return (elem.value || "").replace(rreturn, "");
@@ -3225,7 +4138,7 @@ jQuery.extend({
 		height: true,
 		offset: true
 	},
-		
+
 	attr: function( elem, name, value, pass ) {
 		// don't set attributes on text and comment nodes
 		if ( !elem || elem.nodeType === 3 || elem.nodeType === 8 ) {
@@ -3254,7 +4167,7 @@ jQuery.extend({
 				var parent = elem.parentNode;
 				if ( parent ) {
 					parent.selectedIndex;
-	
+
 					// Make sure that it also works with optgroups, see #5701
 					if ( parent.parentNode ) {
 						parent.parentNode.selectedIndex;
@@ -3394,7 +4307,7 @@ jQuery.event = {
 		var eventKey = elem.nodeType ? "events" : "__events__",
 			events = elemData[ eventKey ],
 			eventHandle = elemData.handle;
-			
+
 		if ( typeof events === "function" ) {
 			// On plain objects events is a fn that holds the the data
 			// which prevents this data from being JSON serialized
@@ -3474,9 +4387,9 @@ jQuery.event = {
 					}
 				}
 			}
-			
-			if ( special.add ) { 
-				special.add.call( elem, handleObj ); 
+
+			if ( special.add ) {
+				special.add.call( elem, handleObj );
 
 				if ( !handleObj.handler.guid ) {
 					handleObj.handler.guid = handler.guid;
@@ -3515,7 +4428,7 @@ jQuery.event = {
 		if ( !elemData || !events ) {
 			return;
 		}
-		
+
 		if ( typeof events === "function" ) {
 			elemData = events;
 			events = events.events;
@@ -3553,7 +4466,7 @@ jQuery.event = {
 				namespaces = type.split(".");
 				type = namespaces.shift();
 
-				namespace = new RegExp("(^|\\.)" + 
+				namespace = new RegExp("(^|\\.)" +
 					jQuery.map( namespaces.slice(0).sort(), fcleanup ).join("\\.(?:.*\\.)?") + "(\\.|$)");
 			}
 
@@ -3713,7 +4626,7 @@ jQuery.event = {
 				isClick = jQuery.nodeName(target, "a") && targetType === "click",
 				special = jQuery.event.special[ targetType ] || {};
 
-			if ( (!special._default || special._default.call( elem, event ) === false) && 
+			if ( (!special._default || special._default.call( elem, event ) === false) &&
 				!isClick && !(target && target.nodeName && jQuery.noData[target.nodeName.toLowerCase()]) ) {
 
 				try {
@@ -3781,7 +4694,7 @@ jQuery.event = {
 					event.handler = handleObj.handler;
 					event.data = handleObj.data;
 					event.handleObj = handleObj;
-	
+
 					var ret = handleObj.handler.apply( this, args );
 
 					if ( ret !== undefined ) {
@@ -3877,7 +4790,7 @@ jQuery.event = {
 			add: function( handleObj ) {
 				jQuery.event.add( this,
 					liveConvert( handleObj.origType, handleObj.selector ),
-					jQuery.extend({}, handleObj, {handler: liveHandler, guid: handleObj.handler.guid}) ); 
+					jQuery.extend({}, handleObj, {handler: liveHandler, guid: handleObj.handler.guid}) );
 			},
 
 			remove: function( handleObj ) {
@@ -3907,7 +4820,7 @@ jQuery.removeEvent = document.removeEventListener ?
 		if ( elem.removeEventListener ) {
 			elem.removeEventListener( type, handle, false );
 		}
-	} : 
+	} :
 	function( elem, type, handle ) {
 		if ( elem.detachEvent ) {
 			elem.detachEvent( "on" + type, handle );
@@ -3954,7 +4867,7 @@ jQuery.Event.prototype = {
 		if ( !e ) {
 			return;
 		}
-		
+
 		// if preventDefault exists run it on the original event
 		if ( e.preventDefault ) {
 			e.preventDefault();
@@ -4049,7 +4962,7 @@ if ( !jQuery.support.submitBubbles ) {
 						return trigger( "submit", this, arguments );
 					}
 				});
-	 
+
 				jQuery.event.add(this, "keypress.specialSubmit", function( e ) {
 					var elem = e.target, type = elem.type;
 
@@ -4110,7 +5023,7 @@ if ( !jQuery.support.changeBubbles ) {
 		if ( e.type !== "focusout" || elem.type !== "radio" ) {
 			jQuery.data( elem, "_change_data", val );
 		}
-		
+
 		if ( data === undefined || val === data ) {
 			return;
 		}
@@ -4124,7 +5037,7 @@ if ( !jQuery.support.changeBubbles ) {
 
 	jQuery.event.special.change = {
 		filters: {
-			focusout: testChange, 
+			focusout: testChange,
 
 			beforedeactivate: testChange,
 
@@ -4195,15 +5108,15 @@ if ( document.addEventListener ) {
 				if ( focusCounts[fix]++ === 0 ) {
 					document.addEventListener( orig, handler, true );
 				}
-			}, 
-			teardown: function() { 
+			},
+			teardown: function() {
 				if ( --focusCounts[fix] === 0 ) {
 					document.removeEventListener( orig, handler, true );
 				}
 			}
 		};
 
-		function handler( e ) { 
+		function handler( e ) {
 			e = jQuery.event.fix( e );
 			e.type = fix;
 			return jQuery.event.trigger( e, null, e.target );
@@ -4220,7 +5133,7 @@ jQuery.each(["bind", "one"], function( i, name ) {
 			}
 			return this;
 		}
-		
+
 		if ( jQuery.isFunction( data ) || data === false ) {
 			fn = data;
 			data = undefined;
@@ -4260,20 +5173,20 @@ jQuery.fn.extend({
 
 		return this;
 	},
-	
+
 	delegate: function( selector, types, data, fn ) {
 		return this.live( types, data, fn, selector );
 	},
-	
+
 	undelegate: function( selector, types, fn ) {
 		if ( arguments.length === 0 ) {
 				return this.unbind( "live" );
-		
+
 		} else {
 			return this.die( types, null, fn, selector );
 		}
 	},
-	
+
 	trigger: function( type, data ) {
 		return this.each(function() {
 			jQuery.event.trigger( type, data, this );
@@ -4329,12 +5242,12 @@ jQuery.each(["live", "die"], function( i, name ) {
 		var type, i = 0, match, namespaces, preType,
 			selector = origSelector || this.selector,
 			context = origSelector ? this : jQuery( this.context );
-		
+
 		if ( typeof types === "object" && !types.preventDefault ) {
 			for ( var key in types ) {
 				context[ name ]( key, data, types[key], selector );
 			}
-			
+
 			return this;
 		}
 
@@ -4381,7 +5294,7 @@ jQuery.each(["live", "die"], function( i, name ) {
 				context.unbind( "live." + liveConvert( type, selector ), fn );
 			}
 		}
-		
+
 		return this;
 	};
 });
@@ -4544,14 +5457,14 @@ var Sizzle = function(selector, context, results, seed) {
 	if ( context.nodeType !== 1 && context.nodeType !== 9 ) {
 		return [];
 	}
-	
+
 	if ( !selector || typeof selector !== "string" ) {
 		return results;
 	}
 
 	var parts = [], m, set, checkSet, extra, prune = true, contextXML = Sizzle.isXML(context),
 		soFar = selector, ret, cur, pop, i;
-	
+
 	// Reset the position of the chunker regexp (start from head)
 	do {
 		chunker.exec("");
@@ -4559,9 +5472,9 @@ var Sizzle = function(selector, context, results, seed) {
 
 		if ( m ) {
 			soFar = m[3];
-		
+
 			parts.push( m[1] );
-		
+
 			if ( m[2] ) {
 				extra = m[3];
 				break;
@@ -4583,7 +5496,7 @@ var Sizzle = function(selector, context, results, seed) {
 				if ( Expr.relative[ selector ] ) {
 					selector += parts.shift();
 				}
-				
+
 				set = posProcess( selector, set );
 			}
 		}
@@ -4699,7 +5612,7 @@ Sizzle.find = function(expr, context, isXML){
 
 	for ( var i = 0, l = Expr.order.length; i < l; i++ ) {
 		var type = Expr.order[i], match;
-		
+
 		if ( (match = Expr.leftMatch[ type ].exec( expr )) ) {
 			var left = match[1];
 			match.splice(1,1);
@@ -4978,7 +5891,7 @@ var Expr = Sizzle.selectors = {
 		},
 		ATTR: function(match, curLoop, inplace, result, not, isXML){
 			var name = match[1].replace(/\\/g, "");
-			
+
 			if ( !isXML && Expr.attrMap[name] ) {
 				match[1] = Expr.attrMap[name];
 			}
@@ -5004,7 +5917,7 @@ var Expr = Sizzle.selectors = {
 			} else if ( Expr.match.POS.test( match[0] ) || Expr.match.CHILD.test( match[0] ) ) {
 				return true;
 			}
-			
+
 			return match;
 		},
 		POS: function(match){
@@ -5125,18 +6038,18 @@ var Expr = Sizzle.selectors = {
 				case 'only':
 				case 'first':
 					while ( (node = node.previousSibling) )	 {
-						if ( node.nodeType === 1 ) { 
-							return false; 
+						if ( node.nodeType === 1 ) {
+							return false;
 						}
 					}
-					if ( type === "first" ) { 
-						return true; 
+					if ( type === "first" ) {
+						return true;
 					}
 					node = elem;
 				case 'last':
 					while ( (node = node.nextSibling) )	 {
-						if ( node.nodeType === 1 ) { 
-							return false; 
+						if ( node.nodeType === 1 ) {
+							return false;
 						}
 					}
 					return true;
@@ -5146,20 +6059,20 @@ var Expr = Sizzle.selectors = {
 					if ( first === 1 && last === 0 ) {
 						return true;
 					}
-					
+
 					var doneName = match[0],
 						parent = elem.parentNode;
-	
+
 					if ( parent && (parent.sizcache !== doneName || !elem.nodeIndex) ) {
 						var count = 0;
 						for ( node = parent.firstChild; node; node = node.nextSibling ) {
 							if ( node.nodeType === 1 ) {
 								node.nodeIndex = ++count;
 							}
-						} 
+						}
 						parent.sizcache = doneName;
 					}
-					
+
 					var diff = elem.nodeIndex - last;
 					if ( first === 0 ) {
 						return diff === 0;
@@ -5236,7 +6149,7 @@ var makeArray = function(array, results) {
 		results.push.apply( results, array );
 		return results;
 	}
-	
+
 	return array;
 };
 
@@ -5460,7 +6373,7 @@ if ( document.querySelectorAll ) {
 		if ( div.querySelectorAll && div.querySelectorAll(".TEST").length === 0 ) {
 			return;
 		}
-	
+
 		Sizzle = function(query, context, extra, seed){
 			context = context || document;
 
@@ -5493,7 +6406,7 @@ if ( document.querySelectorAll ) {
 					}
 				}
 			}
-		
+
 			return oldSizzle(query, context, extra, seed);
 		};
 
@@ -5514,14 +6427,14 @@ if ( document.querySelectorAll ) {
 		// This should fail with an exception
 		// Gecko does not error, returns false instead
 		matches.call( document.documentElement, ":sizzle" );
-	
+
 	} catch( pseudoError ) {
 		pseudoWorks = true;
 	}
 
 	if ( matches ) {
 		Sizzle.matchesSelector = function( node, expr ) {
-				try { 
+				try {
 					if ( pseudoWorks || !Expr.match.PSEUDO.test( expr ) ) {
 						return matches.call( node, expr );
 					}
@@ -5549,7 +6462,7 @@ if ( document.querySelectorAll ) {
 	if ( div.getElementsByClassName("e").length === 1 ) {
 		return;
 	}
-	
+
 	Expr.order.splice(1, 0, "CLASS");
 	Expr.find.CLASS = function(match, context, isXML) {
 		if ( typeof context.getElementsByClassName !== "undefined" && !isXML ) {
@@ -5637,7 +6550,7 @@ Sizzle.contains = document.documentElement.contains ? function(a, b){
 
 Sizzle.isXML = function(elem){
 	// documentElement is verified for cases where it doesn't yet exist
-	// (such as loading iframes in IE - #4833) 
+	// (such as loading iframes in IE - #4833)
 	var documentElement = (elem ? elem.ownerDocument || elem : 0).documentElement;
 	return documentElement ? documentElement.nodeName !== "HTML" : false;
 };
@@ -5725,7 +6638,7 @@ jQuery.fn.extend({
 	filter: function( selector ) {
 		return this.pushStack( winnow(this, selector, true), "filter", selector );
 	},
-	
+
 	is: function( selector ) {
 		return !!selector && jQuery.filter( selector, this ).length > 0;
 	},
@@ -5741,7 +6654,7 @@ jQuery.fn.extend({
 					selector = selectors[i];
 
 					if ( !matches[selector] ) {
-						matches[selector] = jQuery.expr.match.POS.test( selector ) ? 
+						matches[selector] = jQuery.expr.match.POS.test( selector ) ?
 							jQuery( selector, context || this.context ) :
 							selector;
 					}
@@ -5764,7 +6677,7 @@ jQuery.fn.extend({
 			return ret;
 		}
 
-		var pos = POS.test( selectors ) ? 
+		var pos = POS.test( selectors ) ?
 			jQuery( selectors, context || this.context ) : null;
 
 		for ( i = 0, l = this.length; i < l; i++ ) {
@@ -5785,10 +6698,10 @@ jQuery.fn.extend({
 		}
 
 		ret = ret.length > 1 ? jQuery.unique(ret) : ret;
-		
+
 		return this.pushStack( ret, "closest", selectors );
 	},
-	
+
 	// Determine the position of an element within
 	// the matched set of elements
 	index: function( elem ) {
@@ -5869,7 +6782,7 @@ jQuery.each({
 }, function( name, fn ) {
 	jQuery.fn[ name ] = function( until, selector ) {
 		var ret = jQuery.map( this, fn, until );
-		
+
 		if ( !runtil.test( name ) ) {
 			selector = until;
 		}
@@ -5898,7 +6811,7 @@ jQuery.extend({
 			jQuery.find.matchesSelector(elems[0], expr) ? [ elems[0] ] : [] :
 			jQuery.find.matches(expr, elems);
 	},
-	
+
 	dir: function( elem, dir, until ) {
 		var matched = [], cur = elem[dir];
 		while ( cur && cur.nodeType !== 9 && (until === undefined || cur.nodeType !== 1 || !jQuery( cur ).is( until )) ) {
@@ -6115,7 +7028,7 @@ jQuery.fn.extend({
 			return set;
 		}
 	},
-	
+
 	// keepData is for internal use only--do not document
 	remove: function( selector, keepData ) {
 		for ( var i = 0, elem; (elem = this[i]) != null; i++ ) {
@@ -6130,7 +7043,7 @@ jQuery.fn.extend({
 				}
 			}
 		}
-		
+
 		return this;
 	},
 
@@ -6146,7 +7059,7 @@ jQuery.fn.extend({
 				elem.removeChild( elem.firstChild );
 			}
 		}
-		
+
 		return this;
 	},
 
@@ -6291,9 +7204,9 @@ jQuery.fn.extend({
 			} else {
 				results = jQuery.buildFragment( args, this, scripts );
 			}
-			
+
 			fragment = results.fragment;
-			
+
 			if ( fragment.childNodes.length === 1 ) {
 				first = fragment = fragment.firstChild;
 			} else {
@@ -6398,18 +7311,18 @@ jQuery.each({
 	jQuery.fn[ name ] = function( selector ) {
 		var ret = [], insert = jQuery( selector ),
 			parent = this.length === 1 && this[0].parentNode;
-		
+
 		if ( parent && parent.nodeType === 11 && parent.childNodes.length === 1 && insert.length === 1 ) {
 			insert[ original ]( this[0] );
 			return this;
-			
+
 		} else {
 			for ( var i = 0, l = insert.length; i < l; i++ ) {
 				var elems = (i > 0 ? this.clone(true) : this).get();
 				jQuery( insert[i] )[ original ]( elems );
 				ret = ret.concat( elems );
 			}
-		
+
 			return this.pushStack( ret, name, insert.selector );
 		}
 	};
@@ -6497,7 +7410,7 @@ jQuery.extend({
 			for ( i = 0; ret[i]; i++ ) {
 				if ( scripts && jQuery.nodeName( ret[i], "script" ) && (!ret[i].type || ret[i].type.toLowerCase() === "text/javascript") ) {
 					scripts.push( ret[i].parentNode ? ret[i].parentNode.removeChild( ret[i] ) : ret[i] );
-				
+
 				} else {
 					if ( ret[i].nodeType === 1 ) {
 						ret.splice.apply( ret, [i + 1, 0].concat(jQuery.makeArray(ret[i].getElementsByTagName("script"))) );
@@ -6509,22 +7422,22 @@ jQuery.extend({
 
 		return ret;
 	},
-	
+
 	cleanData: function( elems ) {
 		var data, id, cache = jQuery.cache,
 			special = jQuery.event.special,
 			deleteExpando = jQuery.support.deleteExpando;
-		
+
 		for ( var i = 0, elem; (elem = elems[i]) != null; i++ ) {
 			if ( elem.nodeName && jQuery.noData[elem.nodeName.toLowerCase()] ) {
 				continue;
 			}
 
 			id = elem[ jQuery.expando ];
-			
+
 			if ( id ) {
 				data = cache[ id ];
-				
+
 				if ( data && data.events ) {
 					for ( var type in data.events ) {
 						if ( special[ type ] ) {
@@ -6535,14 +7448,14 @@ jQuery.extend({
 						}
 					}
 				}
-				
+
 				if ( deleteExpando ) {
 					delete elem[ jQuery.expando ];
 
 				} else if ( elem.removeAttribute ) {
 					elem.removeAttribute( jQuery.expando );
 				}
-				
+
 				delete cache[ id ];
 			}
 		}
@@ -7127,7 +8040,7 @@ jQuery.extend({
 						delete window[ jsonp ];
 					} catch( jsonpError ) {}
 				}
-				
+
 				if ( head ) {
 					head.removeChild( script );
 				}
@@ -7384,19 +8297,19 @@ jQuery.extend({
 			value = jQuery.isFunction(value) ? value() : value;
 			s[ s.length ] = encodeURIComponent(key) + "=" + encodeURIComponent(value);
 		};
-		
+
 		// Set traditional to true for jQuery <= 1.3.2 behavior.
 		if ( traditional === undefined ) {
 			traditional = jQuery.ajaxSettings.traditional;
 		}
-		
+
 		// If an array was passed in, assume that it is an array of form elements.
 		if ( jQuery.isArray(a) || a.jquery ) {
 			// Serialize the form elements
 			jQuery.each( a, function() {
 				add( this.name, this.value );
 			});
-			
+
 		} else {
 			// If traditional, encode the "old" way (the way 1.3.2 or older
 			// did it), otherwise encode params recursively.
@@ -7429,7 +8342,7 @@ function buildParams( prefix, obj, traditional, add ) {
 				buildParams( prefix + "[" + ( typeof v === "object" || jQuery.isArray(v) ? i : "" ) + "]", v, traditional, add );
 			}
 		});
-			
+
 	} else if ( !traditional && obj != null && typeof obj === "object" ) {
 		if ( jQuery.isEmptyObject( obj ) ) {
 			add( prefix, "" );
@@ -7440,7 +8353,7 @@ function buildParams( prefix, obj, traditional, add ) {
 				buildParams( prefix + "[" + k + "]", v, traditional, add );
 			});
 		}
-					
+
 	} else {
 		// Serialize scalar item.
 		add( prefix, obj );
@@ -7498,7 +8411,7 @@ jQuery.extend({
 			jQuery.event.trigger( "ajaxStop" );
 		}
 	},
-		
+
 	triggerGlobal: function( s, type, args ) {
 		(s.context && s.context.url == null ? jQuery(s.context) : jQuery.event).trigger(type, args);
 	},
@@ -8105,7 +9018,7 @@ if ( "getBoundingClientRect" in document.documentElement ) {
 	jQuery.fn.offset = function( options ) {
 		var elem = this[0], box;
 
-		if ( options ) { 
+		if ( options ) {
 			return this.each(function( i ) {
 				jQuery.offset.setOffset( this, options, i );
 			});
@@ -8147,7 +9060,7 @@ if ( "getBoundingClientRect" in document.documentElement ) {
 	jQuery.fn.offset = function( options ) {
 		var elem = this[0];
 
-		if ( options ) { 
+		if ( options ) {
 			return this.each(function( i ) {
 				jQuery.offset.setOffset( this, options, i );
 			});
@@ -8260,7 +9173,7 @@ jQuery.offset = {
 
 		return { top: top, left: left };
 	},
-	
+
 	setOffset: function( elem, options, i ) {
 		var position = jQuery.css( elem, "position" );
 
@@ -8294,7 +9207,7 @@ jQuery.offset = {
 		if (options.left != null) {
 			props.left = (options.left - curOffset.left) + curLeft;
 		}
-		
+
 		if ( "using" in options ) {
 			options.using.call( elem, props );
 		} else {
@@ -8354,7 +9267,7 @@ jQuery.each( ["Left", "Top"], function( i, name ) {
 
 	jQuery.fn[ method ] = function(val) {
 		var elem = this[0], win;
-		
+
 		if ( !elem ) {
 			return null;
 		}
@@ -8422,7 +9335,7 @@ jQuery.each([ "Height", "Width" ], function( i, name ) {
 		if ( !elem ) {
 			return size == null ? null : this;
 		}
-		
+
 		if ( jQuery.isFunction( size ) ) {
 			return this.each(function( i ) {
 				var self = jQuery( this );

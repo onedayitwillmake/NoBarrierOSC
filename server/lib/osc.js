@@ -163,15 +163,16 @@ var Client = function (port, host)
   this._sock = dgram.createSocket('udp4');
 }
 Client.prototype = {
-  send: function (msg) {
-    var binary = msg.toBinary();
-    var bufferWithMessage = new buffer.Buffer(binary, 'binary');
-    this._sock.send(bufferWithMessage, 0, bufferWithMessage.length, this.port, this.host);
-  },
-  sendSimple: function (address, data) {
-    var msg = new Message(address);
-    msg.append(data);
-    this.send(msg);
-  },
+	send: function (msg) {
+		var binary = msg.toBinary();
+		var bufferWithMessage = new buffer.Buffer(binary, 'binary');
+		this._sock.send(bufferWithMessage, 0, bufferWithMessage.length, this.port, this.host);
+	},
+	sendSimple: function (address, data)
+	{
+		var msg = new Message(address);
+		msg.append(data);
+		this.send(msg);
+	}
 }
 exports.Client = Client;
