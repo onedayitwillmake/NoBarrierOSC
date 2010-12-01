@@ -9,7 +9,6 @@ NoBarrierOSC
 `node NoBarrierOSC.js`
 
 ### Communication via browser
-`
 			var HOST = "10.29.145.48"; // Where node.js is running
 			var PORT = 28785;
 			var netChannelDelegate = new NetChannelDelegate(HOST, PORT);
@@ -20,7 +19,6 @@ NoBarrierOSC
 				netChannelDelegate.send(CMDS.MOVE, {x:event.pageX/self.bounds.right, y: event.pageY/self.bounds.bottom});
 				event.preventDefault();
 			});
-`
 ### Credits
 
 Mario Gonzalez &lt;mariogonzalez@gmail.com&gt;
