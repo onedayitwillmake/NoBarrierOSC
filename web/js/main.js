@@ -14,6 +14,7 @@
  Basic Usage:
 	http://onedayitwillmake.com/CirclePackJS/
 */
+
 //require(['js/lib/Vector.js', 'js/lib/SortedLookupTable.js', 'js/PackedCircle.js', 'js/PackedCircleManager.js', 'js/lib/Stats.js'], function() {
 require(["NetChannel", "config"], function(NetChannel) // Make Require load NetChannel for us
 {

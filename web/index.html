@@ -26,6 +26,10 @@
 			border: 1px solid #eee;
 		}
 	</style>
+	<script>
+		console = {};
+		console.log = function(args){};
+	</script>
 	<script data-main="js/main.js" src="js/require-jquery-1.4.3.js"></script>
 </head>
 <body>
@@ -41,12 +45,15 @@
 		{
 			this.bounds = {left:0, top: 0, bottom:$(window).height(), right: $(window).width()};
 			var self = this;
-			var netChannelDelegate = new NetChannelDelegate();
+
+			var HOST = "10.29.145.48"; // Where node.js is running
+			var PORT = 28785;
+			var netChannelDelegate = new NetChannelDelegate(HOST, PORT);
 
 			$(document).mousemove(function(event)
 			{
-				//CSV: x,y
-				netChannelDelegate.send(GAMECONFIG.CMDS.PLAYER_MOVE, {x:event.pageX/self.bounds.right, y: event.pageY/self.bounds.bottom});
+				//1 is a 'CMD'
+				netChannelDelegate.send(CMDS.MOVE, {x:event.pageX/self.bounds.right, y: event.pageY/self.bounds.bottom});
 				event.preventDefault();
 			});
 

@@ -703,7 +703,7 @@ var require, define;
      * @param {Object} context the context object
      */
     req.completeLoad = function (moduleName, context) {
-		console.log('module name:', moduleName );
+//		console.log('module name:', moduleName );
 //		debugger;
         //If there is a waiting require.def call
         var args;
