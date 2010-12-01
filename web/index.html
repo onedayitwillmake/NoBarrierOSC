@@ -23,7 +23,7 @@
 			position: absolute;
 			left: 0;
 			top: 0;
-			/*border: 1px solid #eee;*/
+			border: 1px solid #eee;
 		}
 	</style>
 	<script data-main="js/main.js" src="js/require-jquery-1.4.3.js"></script>
@@ -31,44 +31,21 @@
 <body>
 
 <script>
+	/**
+	 * Use this instead of onDocumentReady
+	 */
 	function onNoBarrierOSCInitComplete()
 	{
 		setupDocumentListeners();
-//		var socket = {};
-//		socket.connect();
-//		socket.on('message', function(obj)
-//		{
-//			if ('buffer' in obj) {
-//				for (var i in obj.buffer)
-//				handleIncomingMessage(obj.buffer[i]);
-//			} else {
-//				handleIncomingMessage(obj);
-//			}
-//		});
-//		function handleIncomingMessage(obj)
-//		{
-//			var el = document.createElement('p');
-//
-//			/*
-//			if ('announcement' in obj)
-//				el.innerHTML = '<em>' + esc(obj.announcement) + '</em>';
-//			else if ('message' in obj)
-//				el.innerHTML = '<b>' + esc(obj.message[0]) + ':</b> ' + esc(obj.message[1]);
-//			*/
-//		}
-//
 		function setupDocumentListeners()
 		{
 			this.bounds = {left:0, top: 0, bottom:$(window).height(), right: $(window).width()};
 			var self = this;
 			var netChannelDelegate = new NetChannelDelegate();
 
-//			var prevPosition = {x: 0 y:0};
-//			var position = {x: 0 y:0};
 			$(document).mousemove(function(event)
 			{
 				//CSV: x,y
-//				console.log('move')
 				netChannelDelegate.send(GAMECONFIG.CMDS.PLAYER_MOVE, {x:event.pageX/self.bounds.right, y: event.pageY/self.bounds.bottom});
 				event.preventDefault();
 			});
@@ -103,112 +80,7 @@
 			document.addEventListener("touchend", touchHandler, true);
 			document.addEventListener("touchcancel", touchHandler, true);
 		}
-
-
-//		// NOTE: Where you see, [Browser Name], it means im doing something just for that browser and making a note of it
-//		var mouseIsDown = false;
-//		var draggedCircle = undefined;
-//
-//		// [Intelli-J IDEA] Silence IDE warnings
-//		var $ = this['$'];
-//		var console = window['console'];
-//
-//		console.log("onNoBarrierOSCInitComplete()!");
-//
-//		$(document).mousedown(function(event)
-//		{
-//			mouseIsDown = true;
-//			draggedCircle = circleManager.grabCircleAt(event.clientX,  event.clientY);
-//			if(draggedCircle == null) return; // No circle was found
-//
-//			// Scale up the new circle
-//			var newScale = draggedCircle.radius*2;
-//			$(draggedCircle.div).animate({width: newScale, height: newScale}, {duration: 250});
-//		});
-//
-//		$(document).mouseup(function(event)
-//		{
-//			mouseIsDown = false;
-//
-//			// Reset the currently dragged circle if we had one
-//			if(draggedCircle)
-//			{
-//				var newSize = draggedCircle.originalRadius*2;
-//				$(draggedCircle.div).animate({width: newSize+"px", height: newSize+"px"}, {duration: 250});
-//
-//				// [Mozilla] : Recenter background
-//				if(draggedCircle.radius > draggedCircle.originalRadius)
-//				{
-//					var backgroundPostionString = (draggedCircle.originalRadius*2) + "px" + " " + (draggedCircle.originalRadius*2) + "px";
-//					$(draggedCircle.div).css('-moz-background-size', backgroundPostionString);
-//				}
-//			}
-//
-//			// set to null
-//			circleManager.setDraggedCircle(null);
-//			circleManager.setTarget(new Vector( $(window).width()/2, $(window).height()/2) );
-//			draggedCircle = null;
-//		});
-//
-//		$(document).mousemove(function(event)
-//		{
-//			// We're dragging a circle!
-//			if(draggedCircle)
-//			{
-//				// Position under mouse
-//				draggedCircle.position.x = event.clientX;
-//				draggedCircle.position.y = event.clientY;
-//				circleManager.setTarget(draggedCircle.position.cp());
-//			}
-//			event.preventDefault(); // Block iOS scrollview
-//		});
-//
-//		// [WebkitMobile] Convert iphone touchevent to mouseevent
-//		function touchHandler(event)
-//		{
-//			var touches = event.changedTouches,
-//					first = touches[0],
-//					type = "";
-//
-//			switch (event.type)
-//			{
-//				case "touchstart": type = "mousedown"; break;
-//				case "touchmove": type = "mousemove"; break;
-//				case "touchend": type = "mouseup"; break;
-//				default: return;
-//			}
-//
-//			var fakeMouseEvent = document.createEvent("MouseEvent");
-//			fakeMouseEvent.initMouseEvent(type, true, true, window, 1,
-//					first.screenX, first.screenY,
-//					first.clientX, first.clientY, false,
-//					false, false, false, 0/*left*/, null);
-//
-//			first.target.dispatchEvent(fakeMouseEvent);
-//			event.preventDefault(); // Block iOS scrollview
-//		}
-//
-//		document.addEventListener("touchstart", touchHandler, true);
-//		document.addEventListener("touchmove", touchHandler, true);
-//		document.addEventListener("touchend", touchHandler, true);
-//		document.addEventListener("touchcancel", touchHandler, true);
-
-//		/**
-//		 * Stats
-//		 * Create stats module, and attach to top left
-//		 */
-//		var stats = new Stats();
-//		stats.domElement.style.position = 'absolute';
-//		stats.domElement.style.left = '0px';
-//		stats.domElement.style.top = '0px';
-//		console.log( $(stats.domElement).appendTo( $('body') ) );
-//		setInterval( function () {
-//			stats.update();
-//		}, 1000 / 30 );
 	}
-	// This will be called by main.js for us - im leaving it here to write this comment!
-//	$(document).ready(onDocumentReady);
-
 </script>
 <div id="touchArea"></div>
 <img style="position: absolute; top: 0; right: 0; border: 0;" src="images/fork.png" alt="Fork me on GitHub" />
