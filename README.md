@@ -6,7 +6,6 @@ NoBarrierOSC
 
 ##Usage 
 `
-;
 			var HOST = "10.29.145.48"; // Where node.js is running
 			var PORT = 28785;
 			var netChannelDelegate = new NetChannelDelegate(HOST, PORT);
