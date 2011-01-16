@@ -4,6 +4,8 @@ NoBarrierOSC
 
 `NoBarrierOSC` is a Node.js / Websocket server (using a a set of projects mangled together) that allows all users on arbitrary webpage send OSC messages to any listening application, and each other via any modern browser including iOS/iPhone.
 
+## Demo
+[http://vimeo.com/17356351](http://vimeo.com/17356351)
 ##Usage 
 ### Starting the server
 `node NoBarrierOSC.js`
