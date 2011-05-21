@@ -8,19 +8,26 @@ NoBarrierOSC
 [http://vimeo.com/17356351](http://vimeo.com/17356351)
 ##Usage 
 ### Starting the server
-`node NoBarrierOSC.js`
+`node js/demo/server.js`
 
 ### Communication via browser
-			var HOST = "10.29.145.48"; // Where node.js is running
-			var PORT = 28785;
-			var netChannelDelegate = new NetChannelDelegate(HOST, PORT);
+##### Although the current system seems convoluted and overly complex - it's designed so that users also stay in sync between one another:
 
-			$(document).mousemove(function(event)
-			{
-				//1 is a 'CMD'
-				netChannelDelegate.send(CMDS.MOVE, {x:event.pageX/self.bounds.right, y: event.pageY/self.bounds.bottom});
-				event.preventDefault();
-			});
+		///// Implement these functions in your delegate, or look at the demo and steal from those
+		netChannelDidConnect: function() {},
+		netChannelDidReceiveMessage: function( aMessage ) {},
+		netChannelDidDisconnect: function() {},
+		parseEntityDescriptionArray: function(){},
+		log: function() {},
+		getGameClock: function() {}
+
+
+		///// Initialize the ClientNetChannel which will communicate with the Node.js server on your behalf
+		this.netChannel = new RealtimeMultiplayerGame.ClientNetChannel( this );
+
+		///// Send it messages whenever you want
+		this.netChannel.addMessageToQueue( false, RealtimeMultiplayerGame.Constants.CMDS.PLAYER_UPDATE, {
+							x: Math.round(this._mousePosition.x*100), y:  Math.round(this._mousePositionNormalized.y*100) } );
 ### Credits
 
 Mario Gonzalez &lt;mariogonzalez@gmail.com&gt;
