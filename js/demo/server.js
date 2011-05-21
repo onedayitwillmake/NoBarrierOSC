@@ -17,7 +17,7 @@ require("../core/RealtimeMutliplayerGame.js");
 require("../model/Point.js");
 require("../model/Constants.js");
 require("../model/NetChannelMessage.js");
-require("../core/FieldController.js");
+require("../core/EntityController.js");
 require("../network/Client.js");
 require("../network/ServerNetChannel.js");
 require("../model/GameEntity.js");

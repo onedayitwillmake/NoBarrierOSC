@@ -1,12 +1,12 @@
 (function(){
 	RealtimeMultiplayerGame.namespace("RealtimeMultiplayerGame.Controller");
 
-	RealtimeMultiplayerGame.Controller.FieldController = function() {
+	RealtimeMultiplayerGame.Controller.EntityController = function() {
 		this.entities = new SortedLookupTable();
 		this.players = new SortedLookupTable();
 	};
 
-	RealtimeMultiplayerGame.Controller.FieldController.prototype = {
+	RealtimeMultiplayerGame.Controller.EntityController.prototype = {
 		entities								: null,					// A SortedLookupTable for all entities
 		players									: null,					// A SortedLookupTable for players only, stored using client.getClientid()
 
@@ -52,7 +52,7 @@
 				entity.rotation = newRotation;
 				entity.lastReceivedEntityDescription = newEntityDescription;
 			} else {
-				console.log("(FieldController)::updateEntity - Error: Cannot find entity with entityid", entityid);
+				console.log("(EntityController)::updateEntity - Error: Cannot find entity with entityid", entityid);
 			}
 		},
 
@@ -72,7 +72,7 @@
 		{
 			var player = this.players.objectForKey(clientid);
 			if(!player) {
-				console.log("(FieldController), No 'Character' with clientid " + clientid + " ignoring...");
+				console.log("(EntityController), No 'Character' with clientid " + clientid + " ignoring...");
 				return;
 			}
 
@@ -153,7 +153,7 @@
 ///// Accessors
 		// Will be called on client side
 		setView: function( aView ) {
-			var theInterface = RealtimeMultiplayerGame.Controller.FieldControllerViewProtocol;
+			var theInterface = RealtimeMultiplayerGame.Controller.EntityControllerViewProtocol;
 			for (var member in theInterface) {
 				if ( (typeof aView[member] != typeof theInterface[member]) ) {
 					console.log("object failed to implement interface member " + member);
@@ -171,9 +171,9 @@
 	};
 
 	/**
-	 * Required methods for the FieldControllerView delegate
+	 * Required methods for the EntityControllerView delegate
 	 */
-	RealtimeMultiplayerGame.Controller.FieldControllerViewProtocol = {
+	RealtimeMultiplayerGame.Controller.EntityControllerViewProtocol = {
 		addEntity: function( anEntityView ) {},
 		dealloc: function() {}
 	}

@@ -18,7 +18,7 @@
 		targetFramerate			: 60,											// Try to call our tick function this often, intervalFramerate, is used to determin how often to call settimeout - we can set to lower numbers for slower computers
 
 		netChannel				: null,											// ClientNetChannel instance
-		fieldController			: null,											// FieldController
+		entityController		: null,											// entityController
 		cmdMap					: {},											// Map some custom functions if wnated
 
 
@@ -48,7 +48,7 @@
 					x: (this._mousePositionNormalized.x*100) << 0, y:  (this._mousePositionNormalized.y*100) << 0 } );
 			}
 			this.netChannel.tick();
-//			this.fieldController.tick(this.speedFactor, this.gameClockReal, this.gameTick);
+//			this.entityController.tick(this.speedFactor, this.gameClockReal, this.gameTick);
 		},
 
 		/**

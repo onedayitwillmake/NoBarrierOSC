@@ -24,12 +24,13 @@
 
 		startGameClock: function() {
 
-			this.fieldController = new RealtimeMultiplayerGame.Controller.FieldController();
+			this.entityController = new RealtimeMultiplayerGame.Controller.EntityController();
 			this.setupNetChannel();
 			this.oscClient = new OSC.Client(Demo.Constants.OSC_CONFIG.PORT, Demo.Constants.OSC_CONFIG.ADDRESS);
-			var that = this;
 			this.gameClockReal = new Date().getTime();
-			this.intervalGameTick = setInterval( function(){ that.update() }, Math.floor( 1000/this.intervalFramerate ));
+
+			var that = this;
+			this.intervalGameTick = setInterval( function(){ that.update() }, Math.floor( 1000/this.targetFramerate ));
 		},
 
 		// Methods
@@ -54,14 +55,14 @@
 			this.updateClock();
 
 			// Allow all entities to update their position
-			this.fieldController.getEntities().forEach( function(key, entity){
+			this.entityController.getEntities().forEach( function(key, entity){
 				entity.updatePosition(this.speedFactor, this.gameClock, this.gameTick );
 			}, this );
 
 			this.sendBufferedOSCMessages();
 
 			// Create a new world-entity-description,
-			var worldEntityDescription = new RealtimeMultiplayerGame.model.WorldEntityDescription( this, this.fieldController.getEntities() );
+			var worldEntityDescription = new RealtimeMultiplayerGame.model.WorldEntityDescription( this, this.entityController.getEntities() );
 			this.netChannel.tick( this.gameClock, worldEntityDescription );
 		},
 
@@ -107,7 +108,7 @@
 			var playerEntity = new RealtimeMultiplayerGame.model.GameEntity( this.getNextEntityID(), aClientid );
 			this.playerInfoBuffer.setObjectForKey([], aClientid);
 
-			this.fieldController.addEntity( playerEntity );
+			this.entityController.addEntity( playerEntity );
 		},
 
 		shouldUpdatePlayer: function( client, data ) {
@@ -119,7 +120,7 @@
 
 		shouldRemovePlayer: function( clientid ) {
 			this.playerInfoBuffer.remove( clientid );
-			this.fieldController.removePlayer( clientid );
+			this.entityController.removePlayer( clientid );
 		},
 
 		shouldEndGame: function() {
