@@ -34,7 +34,7 @@ Version:
 			FAKE_LAG	: 0,						// Used to simulate latency
 			UPDATE_RATE	: Math.round(1000/30), 					// How often to request a world-update from the server
 			CMD_RATE	: Math.round(1000/31),                  // How often a client can send messages to server
-			MAX_BUFFER	: 64,
+			MAX_BUFFER	: 6,
 			EXPIRED_ENTITY_CHECK_RATE	: 30,		// How often we clear out entities that the server says no longer exist. Lower looks better but decreases framerate
 			MAX_UPDATE_FAILURE_COUNT	: 3			// How many times we allow ourselves to fail when getting behind the server time
 		},

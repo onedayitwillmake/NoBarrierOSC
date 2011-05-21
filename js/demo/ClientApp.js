@@ -155,7 +155,7 @@
 		 * Convert touch to mouse events
 		 * @param event
 		 */
-		touchWrapper: function( event ) {
+		touchHandler: function( event ) {
 			var touches = event.changedTouches,
 			first = touches[0],
 			type = "";
