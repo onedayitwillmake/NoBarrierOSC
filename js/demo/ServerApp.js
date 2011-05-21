@@ -3,6 +3,7 @@
 	var OSC = require('../lib/osc');
 
 	Demo.ServerApp = function() {
+		this.playerInfoBuffer = new SortedLookupTable();
 		this.setupCmdMap();
 	};
 
@@ -15,6 +16,7 @@
 		targetFramerate			: 60,											// Try to call our tick function this often, intervalFramerate, is used to determin how often to call settimeout - we can set to lower numbers for slower computers
 		intervalGameTick		: null,											// setInterval reference
 
+		positionBuffer			: null,
 		netChannel				: null,
 		oscClient				: null,
 		cmdMap					: {},					// Map the CMD constants to functions
@@ -42,9 +44,6 @@
 		 */
 		setupCmdMap: function() {
 			this.cmdMap[RealtimeMultiplayerGame.Constants.CMDS.PLAYER_UPDATE] = this.shouldUpdatePlayer;
-			// These are left in as an example
-//			this.cmdMap[RealtimeMultiplayerGame.Constants.CMDS.PLAYER_JOINED] = this.onPlayerJoined;
-//			this.cmdMap[RealtimeMultiplayerGame.Constants.CMDS.PLAYER_DISCONNECT] = this.onPlayerDisconnect;
 		},
 
 		/**
@@ -59,13 +58,29 @@
 				entity.updatePosition(this.speedFactor, this.gameClock, this.gameTick );
 			}, this );
 
+			this.sendBufferedOSCMessages();
+
 			// Create a new world-entity-description,
 			var worldEntityDescription = new RealtimeMultiplayerGame.model.WorldEntityDescription( this, this.fieldController.getEntities() );
 			this.netChannel.tick( this.gameClock, worldEntityDescription );
-//
-//			if( this.gameClock > this.gameDuration ) {
-//				this.shouldEndGame();
-//			}
+		},
+
+		/**
+		 * Sends all queued OSC messages for each client connected
+		 */
+		sendBufferedOSCMessages: function() {
+			// For each player, send their messages
+			this.playerInfoBuffer.forEach( function(key, clientMessageBuffer) {
+				var i = clientMessageBuffer.length;
+				while (i--) {
+					// This entity is not active - remove
+					var oscMessage = clientMessageBuffer[i];
+					this.oscClient.send(oscMessage);
+				}
+
+				// Reset buffer array
+				this.playerInfoBuffer.setObjectForKey([], key);
+			}, this );
 		},
 
 		/**
@@ -90,6 +105,8 @@
 
 		shouldAddPlayer: function( aClientid, data ) {
 			var playerEntity = new RealtimeMultiplayerGame.model.GameEntity( this.getNextEntityID(), aClientid );
+			this.playerInfoBuffer.setObjectForKey([], aClientid);
+
 			this.fieldController.addEntity( playerEntity );
 		},
 
@@ -97,12 +114,12 @@
 			var oscMessage = new OSC.Message("/nodejs/" + client.clientid);
 				oscMessage.append([data.payload.x, data.payload.y]);
 
-//			that.clients.objectForKey(aClientID).push(oscMessage);
-//			console.log("(DemoApp)::onPlayerUpdate", client.clientid);
+			this.clients.objectForKey(client.clientid).push(oscMessage);
 		},
 
 		shouldRemovePlayer: function( clientid ) {
-//			this.fieldController.removePlayer( clientid );
+			this.playerInfoBuffer.remove( clientid );
+			this.fieldController.removePlayer( clientid );
 		},
 
 		shouldEndGame: function() {

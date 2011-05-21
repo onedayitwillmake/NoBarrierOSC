@@ -29,7 +29,7 @@ Version:
 	RealtimeMultiplayerGame.model.GameEntity.prototype = {
 		// Connection info
 		clientid    : -1,														// Owner of this object
-		entityid	: -1,														// UUID for this entity
+		entityid	: 1,														// UUID for this entity
 		entityType	: -1,														// A special interger representing the entityType sent via along with other network info
 		position	: RealtimeMultiplayerGame.model.Point.prototype.ZERO,  		// Current position of this entity
 		rotation	: 0,
