@@ -114,7 +114,7 @@
 			var oscMessage = new OSC.Message("/nodejs/" + client.clientid);
 				oscMessage.append([data.payload.x, data.payload.y]);
 
-			this.clients.objectForKey(client.clientid).push(oscMessage);
+			this.playerInfoBuffer.objectForKey(client.clientid).push(oscMessage);
 		},
 
 		shouldRemovePlayer: function( clientid ) {
