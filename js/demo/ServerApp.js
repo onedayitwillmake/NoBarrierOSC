@@ -3,7 +3,7 @@
 	var OSC = require('../lib/osc');
 
 	Demo.ServerApp = function() {
-		return this;
+		this.setupCmdMap();
 	};
 
 	Demo.ServerApp.prototype = {
@@ -41,7 +41,7 @@
 		 * If it is set, it will call that CMD on its delegate
 		 */
 		setupCmdMap: function() {
-//			this.cmdMap[RealtimeMultiplayerGame.Constants.CMDS.PLAYER_UPDATE] = this.shouldUpdatePlayer;
+			this.cmdMap[RealtimeMultiplayerGame.Constants.CMDS.PLAYER_UPDATE] = this.shouldUpdatePlayer;
 			// These are left in as an example
 //			this.cmdMap[RealtimeMultiplayerGame.Constants.CMDS.PLAYER_JOINED] = this.onPlayerJoined;
 //			this.cmdMap[RealtimeMultiplayerGame.Constants.CMDS.PLAYER_DISCONNECT] = this.onPlayerDisconnect;
@@ -89,10 +89,16 @@
 
 
 		shouldAddPlayer: function( aClientid, data ) {
+			var playerEntity = new RealtimeMultiplayerGame.model.GameEntity( this.getNextEntityID(), aClientid );
+			this.fieldController.addEntity( playerEntity );
 		},
 
 		shouldUpdatePlayer: function( client, data ) {
-			console.log("(DemoApp)::onPlayerUpdate");
+			var oscMessage = new OSC.Message("/nodejs/" + client.clientid);
+				oscMessage.append([data.payload.x, data.payload.y]);
+
+//			that.clients.objectForKey(aClientID).push(oscMessage);
+//			console.log("(DemoApp)::onPlayerUpdate", client.clientid);
 		},
 
 		shouldRemovePlayer: function( clientid ) {

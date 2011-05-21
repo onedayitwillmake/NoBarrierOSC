@@ -171,6 +171,7 @@ Version:
 		 * Send queued messages
 		 */
 		tick: function( ) {
+
 			// Can't send new message, still waiting for last imporant message to be returned
 			if(this.reliableBuffer !== null) return;
 
@@ -263,7 +264,6 @@ Version:
 			}
 
 			if(!this.socketio.connected) { // Socket.IO is not connectd, probably not ready yet
-				// console.log("(ClientNetChannel)::sendMessage - socketio is undefined!");
 				return;      //some error here
 			}
 

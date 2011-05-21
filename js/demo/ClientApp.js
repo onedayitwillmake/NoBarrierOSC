@@ -4,6 +4,8 @@
 	Demo.ClientApp = function() {
 		this.gameClockReal = new Date().getTime();
 		this.netChannel = new RealtimeMultiplayerGame.ClientNetChannel( this );
+
+		this.initMouseEvents();
 	};
 
 	Demo.ClientApp.prototype = {
@@ -20,9 +22,32 @@
 		cmdMap					: {},											// Map some custom functions if wnated
 
 
+		_mouseIsDown			: false,
+		_mousePosition			: {},		// Actual mouse position
+		_mousePositionNormalized: {},		// Mouse position 0-1
+
+		/**
+		 * Initialize mouse/touch events
+		 */
+		initMouseEvents: function() {
+			var that = this;
+			document.addEventListener('mousedown', function(e) { that.onMouseDown(e) }, false);
+			document.addEventListener('mousemove', function(e) { that.onMouseMove(e) }, false);
+			document.addEventListener('mouseup', function(e) { that.onMouseUp(e) }, false);
+			document.addEventListener("touchstart", that.touchHandler, true);
+			document.addEventListener("touchmove", that.touchHandler, true);
+			document.addEventListener("touchend", that.touchHandler, true);
+			document.addEventListener("touchcancel", that.touchHandler, true);
+		},
+
+
 		update: function() {
 			this.updateClock();
-//			this.netChannel.a
+			if(this._mouseIsDown) {
+				this.netChannel.addMessageToQueue( false, RealtimeMultiplayerGame.Constants.CMDS.PLAYER_UPDATE, {
+					x: (this._mousePositionNormalized.x*100) << 0, y:  (this._mousePositionNormalized.y*100) << 0 } );
+			}
+			this.netChannel.tick();
 //			this.fieldController.tick(this.speedFactor, this.gameClockReal, this.gameTick);
 		},
 
@@ -30,7 +55,7 @@
 		 * Updates the gameclock and sets the current
 		 */
 		updateClock: function() {
-			//this.netChannel.addMessageToQueue( false, RealtimeMultiplayerGame.Constants.CMDS.PLAYER_UPDATE, { x: aMouseEvent.point.x, y: aMouseEvent.point.y } );
+			//
 			// Store previous time and update current
 			var oldTime = this.gameClockReal;
 			this.gameClockReal = new Date().getTime();
@@ -47,8 +72,9 @@
 		},
 
 		netChannelDidConnect: function() {
-			this.log("Connected!");
+			this.joinGame( "user" + this.netChannel.getClientid() );
 		},
+
 		netChannelDidReceiveMessage: function( aMessage ) {
 			this.log("RecievedMessage", aMessage);
 		},
@@ -63,51 +89,73 @@
 		},
 
 
+		onMouseDown: function(event) {
+			this._mouseIsDown = true;
+		},
+
+		onMouseMove: function(e) {
+			var x, y;
+
+			// Get the mouse position relative to the canvas element.
+			if (e.layerX || e.layerX == 0) { // Firefox
+				x = e.layerX;
+				y = e.layerY;
+			} else if (e.offsetX || e.offsetX == 0) { // Opera
+				x = e.offsetX;
+				y = e.offsetY;
+			}
+
+			this._mousePosition.x = x;
+			this._mousePosition.y = y;
+
+			// Clamp between 0-1 of window size
+			this._mousePositionNormalized.x = Math.max(0.0, Math.min(1.0, this._mousePosition.x / window.innerWidth));
+			this._mousePositionNormalized.y = Math.max(0.0, Math.min(1.0, this._mousePosition.y / window.innerHeight));
+		},
+
+		onMouseUp: function(event) {
+		   this._mouseIsDown = false;
+		},
+
+		/**
+		 * Called when the user has entered a name, and wants to join the match
+		 * @param aNickname
+		 */
+		joinGame: function(aNickname)
+		{
+			this.nickname = aNickname;
+			// Create a 'join' message and queue it in ClientNetChannel
+			this.netChannel.addMessageToQueue( true, RealtimeMultiplayerGame.Constants.CMDS.PLAYER_JOINED, { nickname: this.nickname } );
+		},
+
 		// Display messages some fancy way
 		log: function() { console.log.apply(console, arguments); },
 
+		/**
+		 * Convert touch to mouse events
+		 * @param event
+		 */
+		touchWrapper: function( event ) {
+			var touches = event.changedTouches,
+			first = touches[0],
+			type = "";
 
+			event.preventDefault();
+			switch(event.type) {
+				case "touchstart": type = "mousedown"; break;
+				case "touchmove":  type ="mousemove"; break;
+				case "touchend":   type ="mouseup"; break;
+				default: return;
+			}
 
-		initMouseEvents: function() {
-			var that = this;
-//			document.addEventListener('mousedown', function(e) { that.onMouseDown(e) }, false);
-//			document.addEventListener('mousemove', function(e) { that.onMouseMove(e) }, false);
-//			document.addEventListener('mouseup', function(e) { that.onMouseUp(e) }, false);
-//
-//			addEventListener('mousemove', function(e) { that.onMouseMove(e) }, false);
-//			$.(document).mousemove(function(event) {
-//				netChannelDelegate.send(CMDS.MOVE, {x:event.pageX/self.bounds.right, y: event.pageY/self.bounds.bottom});
-//				event.preventDefault();
-//			});
-//
-//			// Convert iphone touchevent to mouseevent
-//			function touchHandler(event) {
-//			    var touches = event.changedTouches,
-//			        first = touches[0],
-//			        type = "";
-//
-//				event.preventDefault(); // Stop overscroll
-//			    switch(event.type)
-//			    {
-//			        case "touchstart": type = "mousedown"; break;
-//			        case "touchmove":  type="mousemove"; break;
-//			        case "touchend":   type="mouseup"; break;
-//			        default: return;
-//			    }
-//
-//			    var fakeMouseEvent = document.createEvent("MouseEvent");
-//			    fakeMouseEvent.initMouseEvent(type, true, true, window, 1,
-//			                              first.screenX, first.screenY,
-//			                              first.clientX, first.clientY, false,
-//			                              false, false, false, 0, null);
-//
-//			    first.target.dispatchEvent(fakeMouseEvent);
-//			}
-//
-//			document.addEventListener("touchstart", touchHandler, true);
-//			document.addEventListener("touchmove", touchHandler, true);
-//			document.addEventListener("touchend", touchHandler, true);
-//			document.addEventListener("touchcancel", touchHandler, true);
+			// Pass off as mouse event
+			var fakeMouseEvent = document.createEvent("MouseEvent");
+			fakeMouseEvent.initMouseEvent(type, true, true, window, 1,
+									  first.screenX, first.screenY,
+									  first.clientX, first.clientY, false,
+									  false, false, false, 0, null);
+
+			first.target.dispatchEvent(fakeMouseEvent);
 		}
 	};
 }());
