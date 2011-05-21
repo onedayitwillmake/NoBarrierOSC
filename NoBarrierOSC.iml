@@ -6,7 +6,6 @@
         <webroots>
           <root url="file://$MODULE_DIR$/web" relative="/" />
         </webroots>
-        <context-artifact name="NoBarrierOSC:war exploded" />
       </configuration>
     </facet>
   </component>

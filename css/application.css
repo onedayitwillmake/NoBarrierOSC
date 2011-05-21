@@ -1,0 +1,25 @@
+body {
+	background-color: #EEEEEE;
+}
+
+;
+.touchArea {
+	width: 100%;
+	height: 100%;
+	overflow: auto;
+	border: 1px solid #eee;
+	font: 11px Helvetica, Arial;
+}
+
+.packedCircle {
+	-webkit-transition: transform3d 0s linear;
+	-webkit-background-size: 100%;
+	background-image: url("./images/smallCircle.png");
+	background-size: 100%;
+	width: 75px;
+	height: 75px;
+	position: absolute;
+	left: 0;
+	top: 0;
+	border: 1px solid #eee;
+}
