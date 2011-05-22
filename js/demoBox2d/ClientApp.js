@@ -110,11 +110,11 @@
 
 		onMouseDown: function(event) {
 			this._mouseIsDown = true;
-//			this.netChannel.addMessageToQueue( true, Demo.Constants.CMDS.PLAYER_MOUSE_STATE, {state: true} );
+			this.netChannel.addMessageToQueue( true, Demo.Constants.CMDS.PLAYER_MOUSE_STATE, {state: true} );
 		},
 		onMouseUp: function(event) {
 			this._mouseIsDown = false;
-//			this.netChannel.addMessageToQueue( true, Demo.Constants.CMDS.PLAYER_MOUSE_STATE, {state: false} );
+			this.netChannel.addMessageToQueue( true, Demo.Constants.CMDS.PLAYER_MOUSE_STATE, {state: false} );
 		},
 
 

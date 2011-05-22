@@ -124,6 +124,8 @@
 			var oscMessage = new OSC.Message("/nodejs/" + client.clientid);
 				oscMessage.append(["mov", player.altIsDown, player.mouseIsDown, data.payload.x, data.payload.y]);
 
+//			console.log( ["mov", player.altIsDown, player.mouseIsDown, data.payload.x, data.payload.y] );
+
 			this.playerInfoBuffer.objectForKey(client.clientid).push(oscMessage);
 		},
 
