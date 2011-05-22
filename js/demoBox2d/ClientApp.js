@@ -22,7 +22,6 @@
 		cmdMap					: {},											// Map some custom functions if wnated
 
 
-		_mouseIsDown			: false,
 		_mousePosition			: {},		// Actual mouse position
 		_mousePositionNormalized: {},		// Mouse position 0-1
 
@@ -38,6 +37,9 @@
 			document.addEventListener("touchmove", that.touchHandler, true);
 			document.addEventListener("touchend", that.touchHandler, true);
 			document.addEventListener("touchcancel", that.touchHandler, true);
+
+			document.addEventListener("keydown", function(e) { that.onKeyboardEvent(e) }, true);
+			document.addEventListener("keyup", function(e) { that.onKeyboardEvent(e) }, true);
 		},
 
 
@@ -109,11 +111,9 @@
 
 
 		onMouseDown: function(event) {
-			this._mouseIsDown = true;
 			this.netChannel.addMessageToQueue( true, Demo.Constants.CMDS.PLAYER_MOUSE_STATE, {state: true} );
 		},
 		onMouseUp: function(event) {
-			this._mouseIsDown = false;
 			this.netChannel.addMessageToQueue( true, Demo.Constants.CMDS.PLAYER_MOUSE_STATE, {state: false} );
 		},
 
@@ -137,6 +137,15 @@
 			this._mousePositionNormalized.x = Math.max(0.0, Math.min(1.0, this._mousePosition.x / window.innerWidth));
 			this._mousePositionNormalized.y = Math.max(0.0, Math.min(1.0, this._mousePosition.y / window.innerHeight));
 		},
+
+		onKeyboardEvent: function(event) {
+			console.log("KeyDown");
+			// If it's alt, create a message
+			if(event.keyCode == '91') {
+				this.netChannel.addMessageToQueue( true, Demo.Constants.CMDS.PLAYER_ALT_STATE, {state: event.type === "keydown"} );
+			}
+		},
+
 
 		/**
 		 * Called when the user has entered a name, and wants to join the match

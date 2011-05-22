@@ -46,7 +46,7 @@
 		setupCmdMap: function() {
 			this.cmdMap[RealtimeMultiplayerGame.Constants.CMDS.PLAYER_UPDATE] = this.shouldUpdatePlayer;
 			this.cmdMap[Demo.Constants.CMDS.PLAYER_MOUSE_STATE] = this.shouldSetPlayerMouseState;
-//			this.cmdMap[Demo.Constants.CMDS.PLAYER_MOUSE_UP] = this.shouldSetPlayerMouseUp;
+			this.cmdMap[Demo.Constants.CMDS.PLAYER_ALT_STATE] = this.shouldSetPlayerAltState;
 		},
 
 		/**
