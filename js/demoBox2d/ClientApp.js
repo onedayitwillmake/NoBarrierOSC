@@ -48,7 +48,6 @@
 					x: (this._mousePositionNormalized.x*100) << 0, y:  (this._mousePositionNormalized.y*100) << 0 } );
 
 			this.netChannel.tick();
-//			this.entityController.tick(this.speedFactor, this.gameClockReal, this.gameTick);
 		},
 
 		/**
@@ -111,11 +110,11 @@
 
 		onMouseDown: function(event) {
 			this._mouseIsDown = true;
-			this.netChannel.addMessageToQueue( true, Demo.Constants.CMDS.PLAYER_MOUSE_STATE, {state: true} );
+//			this.netChannel.addMessageToQueue( true, Demo.Constants.CMDS.PLAYER_MOUSE_STATE, {state: true} );
 		},
 		onMouseUp: function(event) {
 			this._mouseIsDown = false;
-			this.netChannel.addMessageToQueue( true, Demo.Constants.CMDS.PLAYER_MOUSE_STATE, {state: false} );
+//			this.netChannel.addMessageToQueue( true, Demo.Constants.CMDS.PLAYER_MOUSE_STATE, {state: false} );
 		},
 
 

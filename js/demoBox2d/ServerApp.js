@@ -121,16 +121,14 @@
 
 		shouldUpdatePlayer: function( client, data ) {
 			var player = this.entityController.getPlayerWithid( client.clientid );
-
 			var oscMessage = new OSC.Message("/nodejs/" + client.clientid);
-				oscMessage.append([player.altIsDown, player.mouseIsDown, data.payload.x, data.payload.y]);
+				oscMessage.append(["mov", player.altIsDown, player.mouseIsDown, data.payload.x, data.payload.y]);
 
 			this.playerInfoBuffer.objectForKey(client.clientid).push(oscMessage);
 		},
 
 		shouldSetPlayerMouseState: function( client, data ) {
 			var player = this.entityController.getPlayerWithid( client.clientid );
-			console.log(client.clientid );
 			player.mouseIsDown = ( data.payload.state === true ) ? 1 : 0;
 		},
 
