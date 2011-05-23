@@ -4,12 +4,12 @@
 	Demo.ClientApp = function() {
 		this.gameClockReal = new Date().getTime();
 		this.netChannel = new RealtimeMultiplayerGame.ClientNetChannel( this );
-
+		this._isActive = true;
 		this.initMouseEvents();
 	};
 
 	Demo.ClientApp.prototype = {
-
+		_isActive				: true,
 		gameClockReal  			: 0,											// Actual time via "new Date().getTime();"
 		gameClock				: 0,											// Seconds since start
 		gameTick				: 0,											// Ticks/frames since start
@@ -80,6 +80,8 @@
 			this.log("RecievedMessage", aMessage);
 		},
 		netChannelDidDisconnect: function() {
+			this._isActive = false;
+			this.netChannel.dealloc();
 			this.log("netChannelDidDisconnect", arguments);
 		},
 
@@ -139,7 +141,7 @@
 		},
 
 		onKeyboardEvent: function(event) {
-			console.log("KeyDown");
+
 			// If it's alt, create a message
 			if(event.keyCode == '91') {
 				this.netChannel.addMessageToQueue( true, Demo.Constants.CMDS.PLAYER_ALT_STATE, {state: event.type === "keydown"} );
@@ -186,6 +188,8 @@
 									  false, false, false, 0, null);
 
 			first.target.dispatchEvent(fakeMouseEvent);
-		}
+		},
+
+		isActive: function() { return this._isActive; }
 	};
 }());

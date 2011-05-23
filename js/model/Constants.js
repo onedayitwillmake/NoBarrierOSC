@@ -18,11 +18,12 @@ Version:
 	RealtimeMultiplayerGame.Constants = {
 		DEBUG_SETTING: {
 			SERVER_NETCHANNEL_DEBUG : true,
-			CLIENT_NETCHANNEL_DEBUG : true
+			CLIENT_NETCHANNEL_DEBUG : false
 		},
 
 		SERVER_SETTING: {
 			CLIENT_ID	: 0,						// If an object has a client id of zero, that means it is owned by the server
+			SOCKET_IP	: "127.0.0.1",
 			SOCKET_PORT	: 8081
 		},
 
@@ -31,7 +32,7 @@ Version:
 			FAKE_LAG	: 0,						// Used to simulate latency
 			UPDATE_RATE	: Math.round(1000 / 30),	// How often to request a world-update from the server
 			CMD_RATE	: Math.round(1000 / 31),	// How often a client can send messages to server
-			MAX_BUFFER	: 6,
+			MAX_BUFFER	: 8,
 			EXPIRED_ENTITY_CHECK_RATE	: 30,		// How often we clear out entities that the server says no longer exist. Lower looks better but decreases framerate
 			MAX_UPDATE_FAILURE_COUNT	: 3			// How many times we allow ourselves to fail when getting behind the server time
 		},
