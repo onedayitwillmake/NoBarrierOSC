@@ -23,7 +23,8 @@ Version:
     var url = require('url');
     var fs = require('fs');
     var sys = require(process.binding('natives').util ? 'util' : 'sys');
-	var io = require('../lib/Socket.IO-node');
+    //s/lib/socket.io/lib/
+	var io = require('socket.io');
 
 	// Local variables for private things in this class
 	var nextClientID = RealtimeMultiplayerGame.Constants.SERVER_SETTING.CLIENT_ID;

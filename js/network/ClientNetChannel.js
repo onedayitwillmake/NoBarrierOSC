@@ -39,7 +39,7 @@ Version:
 	RealtimeMultiplayerGame.ClientNetChannel.prototype = {
 		delegate							:null,				// Object informed when ClientNetChannel does interesting stuff
 		socketio							:null,				// Reference to singluar Socket.IO instance
-		clientid							:null,				// A client id is set by the server on first connect
+		clientid							: "-1",				// A client id is set by the server on first connect
 
 		// Settings
 		cl_updateRate						: RealtimeMultiplayerGame.Constants.CLIENT_SETTING.CMD_RATE,		// How often we can receive messages per sec
@@ -59,7 +59,7 @@ Version:
 
 
 		setupSocketIO: function() {
-		    this.socketio = new io.Socket(null, {port: RealtimeMultiplayerGame.Constants.SERVER_SETTING.SOCKET_PORT, transports:['websocket', 'xhr-polling', 'jsonp-polling'], reconnect: false, rememberTransport: false});
+		    this.socketio = new io.Socket(RealtimeMultiplayerGame.Constants.SERVER_SETTING.SOCKET_IP, {port: RealtimeMultiplayerGame.Constants.SERVER_SETTING.SOCKET_PORT, transports:['websocket', 'xhr-polling', 'jsonp-polling'], reconnect: false, rememberTransport: false});
 			this.socketio.connect();
 
 			var that = this;
@@ -82,7 +82,7 @@ Version:
 		},
 
 		/**
-		 * Called when ServerNetChannel has accepted your connection and given you a client id
+		 * Called when ServerNetChannel has accepted your s and given you a client id
 		 * This is only called once, use the info to set some properties
 		 */
 		onSocketDidAcceptConnection: function(  aNetChannelMessage ) {
@@ -114,21 +114,25 @@ Version:
 			if(aNetChannelMessage.id == this.clientid) // We sent this, clear our reliable buffer que
 			{
 				if(aNetChannelMessage.cmd == RealtimeMultiplayerGame.Constants.CMDS.SERVER_FULL_UPDATE) {
-//					debugger; //  IF CALLED THIS IS A BUG
+					debugger; //  IF CALLED THIS IS A BUG
 				}
 
-				var messageIndex =  aNetChannelMessage.seq & BUFFER_MASK;
-				var message = this.messageBuffer[messageIndex];
+				if(aNetChannelMessage.isReliable) {
 
-				// Free up reliable buffer to allow for new message to be sent
-				if(this.reliableBuffer === message) {
-					this.reliableBuffer = null;
+					var messageIndex =  aNetChannelMessage.seq & BUFFER_MASK;
+					var message = this.messageBuffer[messageIndex];
+
+					// Free up reliable buffer to allow for new message to be sent
+					if(this.reliableBuffer === message) {
+						console.log("CLEARING MESSAGE");
+						this.reliableBuffer = null;
+					}
+
+					// Remove from memory
+					this.messageBuffer[messageIndex] = null;
+
+					return;
 				}
-
-				// Remove from memory
-				this.messageBuffer[messageIndex] = null;
-
-				return;
 			}
 
 			// Call the mapped function
@@ -138,45 +142,13 @@ Version:
 				console.log("(NetChannel)::onSocketMessage could not map '" + aNetChannelMessage.cmd + "' to function!");
 		},
 
+		/**
+		 * Called on disconnect
+		 */
 		onSocketDisconnect: function( ) {
 			this.delegate.netChannelDidDisconnect();
-			this.connection = null;
 			this.socketio = null;
 			console.log("(ClientNetChannel)::onSocketDisconnect", arguments);
-		},
-
-
-		/**
-		 * Send queued messages
-		 */
-		tick: function( ) {
-
-			// Can't send new message, still waiting for last imporant message to be returned
-			if(this.reliableBuffer !== null) return;
-
-			var hasReliableMessages = false;
-			var firstUnreliableMessageFound = null;
-
-			var len = this.messageBuffer.length;
-			for (var i = 0; i < len; i++)
-			{
-				var message = this.messageBuffer[i];
-				if(!message) continue;	// Slot is empty
-
-				// We have more important things to tend to sir.
-				if(message.isReliable)
-				{
-					hasReliableMessages = true;
-					this.sendMessage(message);
-					return;
-				}
-			}
-
-			// No reliable messages waiting, enough time has passed to send an update
-			if(!hasReliableMessages && this.canSendMessage() && this.nextUnreliable != null) {
-				this.sendMessage( this.nextUnreliable );
-				this.nextUnreliable = null;
-			}
 		},
 
 		/**
@@ -242,21 +214,23 @@ Version:
 				return;
 			}
 
-			if(!this.socketio.connected) { // Socket.IO is not connectd, probably not ready yet
+			// Socket.IO is not connectd or we don't have a clientid.
+			// Probably not ready yet
+			if(!this.socketio.connected  || this.clientid === "-1" ) {
 				return;      //some error here
 			}
 
 			aMessageInstance.messageTime = this.delegate.getGameClock(); // Store to determine latency
-
 			this.lastSentTime = this.delegate.getGameClock();
 
+			// Block new connections
 			if( aMessageInstance.isReliable ) {
-				this.reliableBuffer = aMessageInstance; // Block new connections
+				this.reliableBuffer = aMessageInstance;
 			}
 
 			this.socketio.send( aMessageInstance );
 
-			if( RealtimeMultiplayerGame.Constants.CLIENT_NETCHANNEL_DEBUG ) console.log('(NetChannel) Sending Message, isReliable', aMessageInstance.isReliable, aMessageInstance);
+			if( RealtimeMultiplayerGame.Constants.DEBUG_SETTING.CLIENT_NETCHANNEL_DEBUG ) console.log('(NetChannel) Sending Message, isReliable', aMessageInstance.isReliable, aMessageInstance);
 		},
 
 		/**
@@ -265,6 +239,7 @@ Version:
 		 * @param anUnencodedMessage
 		 */
 		addMessageToQueue: function( isReliable, aCommandConstant, payload ) {
+
 			// Create a NetChannelMessage
 			var message = new RealtimeMultiplayerGame.model.NetChannelMessage( this.outgoingSequenceNumber, this.clientid, isReliable, aCommandConstant, payload );
 
@@ -276,7 +251,40 @@ Version:
 			}
 
 			++this.outgoingSequenceNumber;
-			if( RealtimeMultiplayerGame.Constants.CLIENT_NETCHANNEL_DEBUG ) console.log('(NetChannel) Adding Message to queue', this.messageBuffer[this.outgoingSequenceNumber & BUFFER_MASK], " ReliableBuffer currently contains: ", this.reliableBuffer);
+//			if( RealtimeMultiplayerGame.Constants.DEBUG_SETTING.CLIENT_NETCHANNEL_DEBUG ) console.log('(NetChannel) Adding Message to queue', message, " ReliableBuffer currently contains: ", this.reliableBuffer);
+		},
+
+		/**
+		 * Send queued messages
+		 */
+		tick: function( ) {
+
+			// Can't send new message, still waiting for last imporant message to be returned
+			if(this.reliableBuffer !== null) return;
+
+			var hasReliableMessages = false;
+			var firstUnreliableMessageFound = null;
+
+			var len = this.messageBuffer.length;
+			for (var i = 0; i < len; i++)
+			{
+				var message = this.messageBuffer[i];
+				if(!message) continue;	// Slot is empty
+
+				// We have more important things to tend to sir.
+				if(message.isReliable)
+				{
+					hasReliableMessages = true;
+					this.sendMessage(message);
+					return;
+				}
+			}
+
+			// No reliable messages waiting, and enough time has passed
+			if(this.canSendMessage() && this.nextUnreliable != null) {
+				this.sendMessage( this.nextUnreliable );
+				this.nextUnreliable = null;
+			}
 		},
 
 		/**
@@ -307,8 +315,9 @@ Version:
 		 * Clear memory
 		 */
 		dealloc: function() {
-			this.connection.close();
-			delete this.connection;
+			this.socketio.disconnect();
+			this.socketio = null;
+			delete this.socketio;
 			delete this.messageBuffer;
 			delete this.incomingWorldUpdateBuffer;
 		 },

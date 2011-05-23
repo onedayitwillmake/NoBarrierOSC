@@ -12,7 +12,9 @@
 		// Loop
 		(function loop() {
 			app.update();
-			window.requestAnimationFrame( loop, null );
+			if( app.isActive() ) {
+				window.requestAnimationFrame( loop, null );
+			}
 		})();
 	};
 

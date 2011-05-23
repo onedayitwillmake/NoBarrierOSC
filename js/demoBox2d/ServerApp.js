@@ -107,6 +107,7 @@
 
 
 		shouldAddPlayer: function( aClientid, data ) {
+			console.log("shouldAddPlayer");
 			var playerEntity = new RealtimeMultiplayerGame.model.GameEntity( this.getNextEntityID(), aClientid );
 			playerEntity.mouseIsDown = 0;
 			playerEntity.altIsDown = 0;
@@ -124,12 +125,12 @@
 			var oscMessage = new OSC.Message("/nodejs/" + client.clientid);
 				oscMessage.append(["mov", player.altIsDown, player.mouseIsDown, data.payload.x, data.payload.y]);
 
-//			console.log( ["mov", player.altIsDown, player.mouseIsDown, data.payload.x, data.payload.y] );
-
 			this.playerInfoBuffer.objectForKey(client.clientid).push(oscMessage);
 		},
 
 		shouldSetPlayerMouseState: function( client, data ) {
+			console.log("shouldSetPlayerMouseState");
+
 			var player = this.entityController.getPlayerWithid( client.clientid );
 			player.mouseIsDown = ( data.payload.state === true ) ? 1 : 0;
 		},
