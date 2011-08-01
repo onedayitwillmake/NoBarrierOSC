@@ -4,7 +4,11 @@ body {
 
 /*D-PAD*/
 .dpad_button {
+    width: 27px;
+    height: 25px;
     position: absolute;
+    background-image: url("../images/joystick/down.png");
+    opacity: 0.25;
 }
 #dpad_up {
     left: 112px;
@@ -23,9 +27,7 @@ body {
     top: 106px;
 }
 
-#thumb_stick {
-    background-color: red;
-    opacity: 0.5;
+.thumb_stick {
     position: absolute;
     top: 215px;
     left: 22px;
@@ -33,10 +35,19 @@ body {
     height: 118px;
 }
 
+#thumb_stick_nub {
+    position: absolute;
+    background-image: url("../images/joystick/thumb.png");
+    width: 53px;
+    height: 53px;
+    opacity: 0.5;
+}
+
 #controller_container {
     position:relative;
     width: 320px;
     height: 356px;
+    background-image: url("../images/joystick/joystick-mini.png");
     /*overflow: hidden;*/
 }
 

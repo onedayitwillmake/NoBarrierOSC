@@ -4,7 +4,8 @@
 	JoystickDemo.ClientApp = function() {
 		this.gameClockReal = new Date().getTime();
 		this.netChannel = new RealtimeMultiplayerGame.ClientNetChannel( this );
-		this.initMouseEvents();
+        
+        this.setup();
 	};
 
 	JoystickDemo.ClientApp.prototype = {
@@ -20,9 +21,15 @@
 		entityController		: null,											// entityController
 		cmdMap					: {},											// Map some custom functions if wnated
 
-
+        _thumbStickController   : null,
 		_mousePosition			: {},		// Actual mouse position
 		_mousePositionNormalized: {},		// Mouse position 0-1
+
+        setup: function() {
+            this._thumbStickController = new JoystickDemo.controls.ThumbStickController();
+            this._dpad = new JoystickDemo.controls.DirectionalPadController();
+            this.initMouseEvents();
+        },
 
 		/**
 		 * Initialize mouse/touch events

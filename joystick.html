@@ -37,8 +37,12 @@
 	<script src="js/model/GameEntity.js"></script>
 
   	<!--DemoApp-->
-	<script src="js/Joystick/DemoNamespace.js"></script>
-	<script src="js/Joystick/DemoConstants.js"></script>
+	<script src="js/Joystick/JoystickNamespace.js"></script>
+	<script src="js/Joystick/JoystickConstants.js"></script>
+	<script src="js/Joystick/controls/Control.js"></script>
+	<script src="js/Joystick/controls/ThumbStickController.js"></script>
+	<script src="js/Joystick/controls/ButtonController.js"></script>
+	<script src="js/Joystick/controls/DirectionalPadController.js"></script>
 	<script src="js/Joystick/ClientApp.js"></script>
 	<script src="js/Joystick/script.js"></script>
 </head>
@@ -47,19 +51,16 @@
 <script>
 </script>
 <div id="controller_container">
-    
-    <div id="controller_image">
-        <img src="images/joystick/joystick-mini.png" />
-    </div>
-
     <div id="dpad">
-        <div id="dpad_up" class="dpad_button"><img src="images/joystick/down.png" /></div>
-        <div id="dpad_down" class="dpad_button"><img src="images/joystick/down.png" /></div>
-        <div id="dpad_left" class="dpad_button"><img src="images/joystick/down.png" /></div>
-        <div id="dpad_right" class="dpad_button"><img src="images/joystick/down.png" /></div>
+        <div id="dpad_up" class="dpad_button"></div>
+        <div id="dpad_down" class="dpad_button"></div>
+        <div id="dpad_left" class="dpad_button"></div>
+        <div id="dpad_right" class="dpad_button"></div>
     </div>
-    <div id="thumb_stick">
-        
+    <div id="thumb_stick" class="thumb_stick">
+        <div id="thumb_stick_nub"></div>
+    </div>
+    <div id="thumb_stick_mouse" class="thumb_stick">
     </div>
 </div>
 <!--<div id="touchArea"></div>-->
