@@ -1,0 +1,67 @@
+<!doctype html>
+<head>
+	<title>NoBarrierOSC Client</title>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="description" content="Interact with a native application from any browser">
+	<meta name="author" content="Mario Gonzalez">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	<!-- IPHONE WEB APP META/LINK TAGS -->
+	<meta name="apple-mobile-web-app-capable" content="yes"/>
+	<meta name="apple-mobile-web-app-status-bar-style" content="black"/>
+	<meta name="viewport" content="user-scalable=no, width=device-width, minimum-scale=1.0, maximum-scale=1.0"/>
+	<link rel="apple-touch-icon" href="./images/apple-touch-icon.png"/>
+
+	<link rel="stylesheet" href="css/style.css?v=2">
+	<link rel="stylesheet" href="css/joystick.css?v=2">
+
+	<!--lib-->
+	<script src="js/lib/caat.js"></script>
+	<script src="js/lib/jquery-1.5.1.js"></script>
+	<script src="js/lib/Stats.js"></script>
+	<script src="js/lib/socket.io.js"></script>
+	<script src="js/lib/SortedLookupTable.js"></script>
+	<script src="js/lib/RequestAnimationFrame.js"></script>
+
+
+	<!-- RealtimeMultiplayerNodeJs -->
+	<script src="js/core/RealtimeMutliplayerGame.js"></script>
+	<script src="js/model/Point.js"></script>
+	<script src="js/model/Constants.js"></script>
+	<script src="js/model/NetChannelMessage.js"></script>
+	<script src="js/network/ClientNetChannel.js"></script>
+
+	<script src="js/core/EntityController.js"></script>
+
+	<script src="js/model/GameEntity.js"></script>
+
+  	<!--DemoApp-->
+	<script src="js/Joystick/DemoNamespace.js"></script>
+	<script src="js/Joystick/DemoConstants.js"></script>
+	<script src="js/Joystick/ClientApp.js"></script>
+	<script src="js/Joystick/script.js"></script>
+</head>
+<body>
+
+<script>
+</script>
+<div id="controller_container">
+    
+    <div id="controller_image">
+        <img src="images/joystick/joystick-mini.png" />
+    </div>
+
+    <div id="dpad">
+        <div id="dpad_up" class="dpad_button"><img src="images/joystick/down.png" /></div>
+        <div id="dpad_down" class="dpad_button"><img src="images/joystick/down.png" /></div>
+        <div id="dpad_left" class="dpad_button"><img src="images/joystick/down.png" /></div>
+        <div id="dpad_right" class="dpad_button"><img src="images/joystick/down.png" /></div>
+    </div>
+    <div id="thumb_stick">
+        
+    </div>
+</div>
+<!--<div id="touchArea"></div>-->
+</body>
+</html>

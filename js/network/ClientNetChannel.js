@@ -59,7 +59,7 @@ Version:
 
 
 		setupSocketIO: function() {
-		    this.socketio = new io.Socket(null, {port: RealtimeMultiplayerGame.Constants.SERVER_SETTING.SOCKET_PORT, transports:['websocket', 'xhr-polling', 'jsonp-polling'], reconnect: false, rememberTransport: false});
+		    this.socketio = new io.Socket("localhost", {port: RealtimeMultiplayerGame.Constants.SERVER_SETTING.SOCKET_PORT, transports:['websocket', 'xhr-polling', 'jsonp-polling'], reconnect: false, rememberTransport: false});
 			this.socketio.connect();
 
 			var that = this;

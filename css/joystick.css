@@ -1,0 +1,45 @@
+body {
+	background-color: #EEEEEE;
+}
+
+/*D-PAD*/
+.dpad_button {
+    position: absolute;
+}
+#dpad_up {
+    left: 112px;
+    top: 66px;
+}
+#dpad_down {
+    left: 32px;
+    top: 66px;
+}
+#dpad_left {
+    left: 72px;
+    top: 26px;
+}
+#dpad_right {
+    left: 72px;
+    top: 106px;
+}
+
+#thumb_stick {
+    background-color: red;
+    opacity: 0.5;
+    position: absolute;
+    top: 215px;
+    left: 22px;
+    width: 118px;
+    height: 118px;
+}
+
+#controller_container {
+    position:relative;
+    width: 320px;
+    height: 356px;
+    /*overflow: hidden;*/
+}
+
+#controller_image {
+    position: absolute;
+}

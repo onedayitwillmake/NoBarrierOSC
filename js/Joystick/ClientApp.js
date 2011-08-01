@@ -1,14 +1,13 @@
 
 (function(){
 
-	Demo.ClientApp = function() {
+	JoystickDemo.ClientApp = function() {
 		this.gameClockReal = new Date().getTime();
 		this.netChannel = new RealtimeMultiplayerGame.ClientNetChannel( this );
-
 		this.initMouseEvents();
 	};
 
-	Demo.ClientApp.prototype = {
+	JoystickDemo.ClientApp.prototype = {
 
 		gameClockReal  			: 0,											// Actual time via "new Date().getTime();"
 		gameClock				: 0,											// Seconds since start
@@ -30,6 +29,7 @@
 		 */
 		initMouseEvents: function() {
 			var that = this;
+
 			document.addEventListener('mousedown', function(e) { that.onMouseDown(e) }, false);
 			document.addEventListener('mousemove', function(e) { that.onMouseMove(e) }, false);
 			document.addEventListener('mouseup', function(e) { that.onMouseUp(e) }, false);
@@ -37,7 +37,6 @@
 			document.addEventListener("touchmove", that.touchHandler, true);
 			document.addEventListener("touchend", that.touchHandler, true);
 			document.addEventListener("touchcancel", that.touchHandler, true);
-
 			document.addEventListener("keydown", function(e) { that.onKeyboardEvent(e) }, true);
 			document.addEventListener("keyup", function(e) { that.onKeyboardEvent(e) }, true);
 		},
@@ -45,10 +44,7 @@
 
 		update: function() {
 			this.updateClock();
-
-			this.netChannel.addMessageToQueue( false, RealtimeMultiplayerGame.Constants.CMDS.PLAYER_UPDATE, {
-					x: (this._mousePositionNormalized.x*100) << 0, y:  (this._mousePositionNormalized.y*100) << 0 } );
-
+//			this.netChannel.addMessageToQueue( false, RealtimeMultiplayerGame.Constants.CMDS.PLAYER_UPDATE, { x: (this._mousePositionNormalized.x*100) << 0, y:  (this._mousePositionNormalized.y*100) << 0 } );
 			this.netChannel.tick();
 		},
 
@@ -91,8 +87,7 @@
 		 * @param {Array} entityDescAsArray An array of tightly packed values
 		 * @return {Object} An object which will be returned to you later on tied to a specific entity
 		 */
-		parseEntityDescriptionArray: function(entityDescAsArray)
-		{
+		parseEntityDescriptionArray: function(entityDescAsArray) {
 			var entityDescription = {};
 
 			// It is left upto each game to implement this function because only the game knows what it needs to send.
@@ -105,16 +100,17 @@
 
 			return entityDescription;
 		},
+
 		getGameClock: function() {
 		   return this.gameClock;
 		},
 
 
 		onMouseDown: function(event) {
-			this.netChannel.addMessageToQueue( true, Demo.Constants.CMDS.PLAYER_MOUSE_STATE, {state: true} );
+			this.netChannel.addMessageToQueue( true, JoystickDemo.Constants.CMDS.PLAYER_MOUSE_STATE, {state: true} );
 		},
 		onMouseUp: function(event) {
-			this.netChannel.addMessageToQueue( true, Demo.Constants.CMDS.PLAYER_MOUSE_STATE, {state: false} );
+			this.netChannel.addMessageToQueue( true, JoystickDemo.Constants.CMDS.PLAYER_MOUSE_STATE, {state: false} );
 		},
 
 
@@ -142,7 +138,7 @@
 			console.log("KeyDown");
 			// If it's alt, create a message
 			if(event.keyCode == '91') {
-				this.netChannel.addMessageToQueue( true, Demo.Constants.CMDS.PLAYER_ALT_STATE, {state: event.type === "keydown"} );
+				this.netChannel.addMessageToQueue( true, JoystickDemo.Constants.CMDS.PLAYER_ALT_STATE, {state: event.type === "keydown"} );
 			}
 		},
 
