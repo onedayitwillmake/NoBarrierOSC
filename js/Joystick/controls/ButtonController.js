@@ -25,9 +25,6 @@
                       var that = this;
             this.addListener( document, 'mousemove', function(e){ that.onMouseMove(e);} );
             this.addListener( document, "touchmove", that.touchHandler);
-
-//            this.addListener( this._htmlElement, 'mousedown', function(e){ that.onMouseDown(e);});
-//            this.addListener( this._htmlElement, 'touchstart', that.touchHandler );
         },
 
         /**
@@ -37,19 +34,8 @@
         onMouseDown: function(e) {
             this._isDown = true;
 
-            // remove event listeners
-            this.removeListener( document, 'mouseup' );
-            this.removeListener( document, 'mousemove' );
-            this.removeListener(document, "touchmove");
-			this.removeListener(document, "touchend");
-
             // add event listeners
             var that = this;
-            this.addListener( document, 'mousemove', function(e){ that.onMouseMove(e);} );
-            this.addListener( document, 'mouseup', function(e){ that.onMouseUp(e);} );
-            this.addListener( document, "touchmove", that.touchHandler);
-			this.addListener( document, "touchend", that.touchHandler);
-
             this._htmlElement.style.opacity = 1;
 
         },
@@ -60,7 +46,7 @@
          */
         onMouseMove: function(e) {
 
-            var radius = this._htmlElement.offsetWidth/2 + 1;
+            var radius = this._htmlElement.offsetWidth/2 + 10;
 
             // Get the offset of our element
             var offset = this.getOffset(this._htmlElement);
@@ -86,12 +72,6 @@
          */
         onMouseUp: function(e) {
             this._isDown = false;
-
-            this.removeListener( document, 'mouseup' );
-            this.removeListener( document, 'mousemove' );
-            this.removeListener( document, "touchmove");
-			this.removeListener( document, "touchend");
-
             this._htmlElement.style.opacity = 0.25;
         },
 
