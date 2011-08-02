@@ -11,75 +11,81 @@
         /**
          * @type {Boolean}
          */
-        _isDown: false,
+        _isDown         : false,
 
         /**
          * @type {HTMLElement}
          */
-        _htmlElement: null,
+        _htmlElement    : null,
+
+        /**
+         * Hit area padding
+         * @type {Number}
+         */
+        _buffer         : 25,
 
         /**
          * Setup event listeners and etc
          */
         setup: function( ) {
-                      var that = this;
-            this.addListener( document, 'mousemove', function(e){ that.onMouseMove(e);} );
-            this.addListener( document, "touchmove", that.touchHandler);
         },
 
         /**
          * Mousedown callback
          * @param {MouseEvent} e
          */
-        onMouseDown: function(e) {
-            this._isDown = true;
-
-            // add event listeners
-            var that = this;
-            this._htmlElement.style.opacity = 1;
-
+        ontouchstart: function(e) {
+            this._isDown = this.hitTest(e);
+            this._htmlElement.style.opacity = (this._isDown) ? 1 : 0.25;
         },
 
         /**
          * Set angle based on nub location
          * @param {MouseEvent} e
          */
-        onMouseMove: function(e) {
+        ontouchmove: function(e) {
+            this._isDown = this.hitTest(e);
+            this._htmlElement.style.opacity = (this._isDown) ? 1 : 0.25;
+        },
 
-            var radius = this._htmlElement.offsetWidth/2 + 10;
+        /**
+         * Reset the nub
+         * @param {MouseEvent} e
+         */
+        ontouchend: function(e) {
+            this._isDown = false;
+            this._htmlElement.style.opacity = 0.25;
+        },
+
+        /**
+         * Hit test against touch
+         * @param {Touch} e
+         * @return Boolean
+         */
+        hitTest: function( e ) {
+            var radius = this._htmlElement.offsetWidth/2;
 
             // Get the offset of our element
             var offset = this.getOffset(this._htmlElement);
 
             // Offset it by the stage position
-            var layerX = e.clientX - offset.left;
-            var layerY = e.clientY - offset.top;
+            var layerX = e.screenX - offset.left;
+            var layerY = e.screenY - offset.top;
 
             // Convert to center based
             var x = Math.round(layerX - radius);
             var y = Math.round(layerY - radius);
 
             var dist = Math.sqrt(x*x + y*y);
-            this._isDown = dist < radius;
 
-            this._htmlElement.style.opacity = (this._isDown) ? 1 : 0.25;
-        },
-
-
-        /**
-         * Reset the nub
-         * @param {MouseEvent} e
-         */
-        onMouseUp: function(e) {
-            this._isDown = false;
-            this._htmlElement.style.opacity = 0.25;
+            return dist < (radius+this._buffer);
         },
 
         ///// ACCESSORS
         getIsDown: function() {
             return this._isDown;
         }
-    }
+    };
 
     JoystickDemo.extend( JoystickDemo.controls.ButtonController, JoystickDemo.controls.Controller )
 

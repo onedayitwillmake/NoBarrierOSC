@@ -3,7 +3,7 @@
     JoystickDemo.controls.ThumbStickController = function(){
         JoystickDemo.controls.ThumbStickController.superclass.constructor.call(this);
         this.setup();
-    };
+    }; 
 
     JoystickDemo.controls.ThumbStickController.prototype = {
         /**
@@ -36,7 +36,7 @@
         _closures   : {},
 
         setup: function( ) {
-            this._htmlElement = document.getElementById("thumb_stick_mouse");
+            this._htmlElement = document.getElementById("thumb_stick_touch_area");
             this._radius = this._htmlElement.offsetWidth/2;
             this._nub = document.getElementById("thumb_stick_nub");
             this._nubRadius = this._nub.offsetWidth/2;
