@@ -3,6 +3,8 @@ body {
 }
 
 /*D-PAD*/
+
+
 .dpad_button {
     width: 27px;
     height: 25px;
@@ -12,7 +14,7 @@ body {
 }
 
 #dpad_touch_area {
-    width: 176px;
+    width: 190px;
     height: 180px;
 }
 
@@ -50,6 +52,7 @@ body {
 }
 
 #controller_container {
+    /*-webkit-transform: translate(75px, -185px) rotate(-90deg);*/
     position:relative;
     width: 320px;
     height: 356px;

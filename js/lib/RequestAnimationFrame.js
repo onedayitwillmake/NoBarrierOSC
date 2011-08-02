@@ -19,4 +19,5 @@ if ( !window.requestAnimationFrame ) {
 
 	} )();
 
+    window.___________________ABC = 'hello'
 }

@@ -8,27 +8,22 @@
 	};
 
 	JoystickDemo.ServerApp.prototype = {
-		gameClockReal  			: 0,											// Actual time via "new Date().getTime();"
+        gameClockReal  			: 0,											// Actual time via "new Date().getTime();"
 		gameClock				: 0,											// Seconds since start
 		gameTick				: 0,											// Ticks/frames since start
 
-		speedFactor				: 1,											// Used to create Framerate Independent Motion (FRIM) - 1.0 means running at exactly the correct speed, 0.5 means half-framerate. (otherwise faster machines which can update themselves more accurately will have an advantage)
 		targetFramerate			: 60,											// Try to call our tick function this often, intervalFramerate, is used to determin how often to call settimeout - we can set to lower numbers for slower computers
 		intervalGameTick		: null,											// setInterval reference
 
-		positionBuffer			: null,
 		netChannel				: null,
 		oscClient				: null,
 		cmdMap					: {},					// Map the CMD constants to functions
 		nextEntityID			: 0,					// Incremented for everytime a new object is created
 
 		startGameClock: function() {
-
 			this.entityController = new RealtimeMultiplayerGame.Controller.EntityController();
 			this.setupNetChannel();
 			this.oscClient = new OSC.Client(JoystickDemo.Constants.OSC_CONFIG.PORT, JoystickDemo.Constants.OSC_CONFIG.ADDRESS);
-			this.gameClockReal = new Date().getTime();
-
 			var that = this;
 			this.intervalGameTick = setInterval( function(){ that.update() }, Math.floor( 1000/this.targetFramerate ));
 		},
@@ -45,8 +40,6 @@
 		 */
 		setupCmdMap: function() {
 			this.cmdMap[RealtimeMultiplayerGame.Constants.CMDS.PLAYER_UPDATE] = this.shouldUpdatePlayer;
-			this.cmdMap[JoystickDemo.Constants.CMDS.PLAYER_MOUSE_STATE] = this.shouldSetPlayerMouseState;
-			this.cmdMap[JoystickDemo.Constants.CMDS.PLAYER_ALT_STATE] = this.shouldSetPlayerAltState;
 		},
 
 		/**
@@ -55,38 +48,12 @@
 		 */
 		update: function() {
 			this.updateClock();
-
-			// Allow all entities to update their position
-			this.entityController.getEntities().forEach( function(key, entity){
-				entity.updatePosition(this.speedFactor, this.gameClock, this.gameTick );
-			}, this );
-
-			this.sendBufferedOSCMessages();
-
 			// Create a new world-entity-description,
-			var worldEntityDescription = new RealtimeMultiplayerGame.model.WorldEntityDescription( this, this.entityController.getEntities() );
+			var worldEntityDescription = new JoystickDemo.WorldEntityDescription( this, this.entityController.getEntities() );
 			this.netChannel.tick( this.gameClock, worldEntityDescription );
 		},
 
-		/**
-		 * Sends all queued OSC messages for each client connected
-		 */
-		sendBufferedOSCMessages: function() {
-			// For each player, send their messages
-			this.playerInfoBuffer.forEach( function(key, clientMessageBuffer) {
-				var i = clientMessageBuffer.length;
-				while (i--) {
-					// This entity is not active - remove
-					var oscMessage = clientMessageBuffer[i];
-					this.oscClient.send(oscMessage);
-				}
-
-				// Reset buffer array
-				this.playerInfoBuffer.setObjectForKey([], key);
-			}, this );
-		},
-
-		/**
+        /**
 		 * Updates the gameclock and sets the current
 		 */
 		updateClock: function() {
@@ -105,41 +72,32 @@
 			if (this.speedFactor <= 0) this.speedFactor = 1;
 		},
 
-
+        /**
+         * Called after a connection has been established
+         * @param {String} aClientid
+         * @param data
+         */
 		shouldAddPlayer: function( aClientid, data ) {
-			var playerEntity = new RealtimeMultiplayerGame.model.GameEntity( this.getNextEntityID(), aClientid );
-			playerEntity.mouseIsDown = 0;
-			playerEntity.altIsDown = 0;
-
+			var playerEntity = new JoystickDemo.JoystickGameEntity( this.getNextEntityID(), aClientid );
+            playerEntity.entityType = data.payload.type;
 			this.playerInfoBuffer.setObjectForKey([], aClientid);
 			this.entityController.addPlayer( playerEntity );
-
-			var oscMessage = new OSC.Message("/nodejs/" + playerEntity.clientid);
-				oscMessage.append(["add", String(playerEntity.clientid)]);
-			this.oscClient.send(oscMessage);
 		},
 
+        /**
+         * Called continuously by a connected joystick - contains information about the state of the joystick
+         * @param {RealtimeMultiplayerGame.network.Client} client
+         * @param {Object} data
+         */
 		shouldUpdatePlayer: function( client, data ) {
 			var player = this.entityController.getPlayerWithid( client.clientid );
-			var oscMessage = new OSC.Message("/nodejs/" + client.clientid);
-				oscMessage.append(["mov", player.altIsDown, player.mouseIsDown, data.payload.x, data.payload.y]);
-
-//			console.log( ["mov", player.altIsDown, player.mouseIsDown, data.payload.x, data.payload.y] );
-
-			this.playerInfoBuffer.objectForKey(client.clientid).push(oscMessage);
+            player.parseJoystickData( data.payload );
 		},
 
-		shouldSetPlayerMouseState: function( client, data ) {
-			var player = this.entityController.getPlayerWithid( client.clientid );
-			player.mouseIsDown = ( data.payload.state === true ) ? 1 : 0;
-		},
-
-		shouldSetPlayerAltState: function( client, data ) {
-			var player = this.entityController.getPlayerWithid( client.clientid );
-			player.altIsDown = ( data.payload.state === true ) ? 1 : 0;
-		},
-
-
+        /**
+         * Called when a connected client has disconnected
+         * @param {String} clientid Id of the disconnected client
+         */
 		shouldRemovePlayer: function( clientid ) {
 			var oscMessage = new OSC.Message("/nodejs/" + clientid);
 				oscMessage.append(["drop", String(clientid)]);
@@ -152,14 +110,8 @@
 	   	log: function() { console.log.apply(console, arguments); },
 
 		///// Accessors
-		getNextEntityID: function() {
-			return ++this.nextEntityID;
-		},
-		getGameClock: function() {
-			return this.gameClock;
-		},
-		getGameTick: function() {
-			return this.gameTick;
-		}
+		getNextEntityID: function() { return ++this.nextEntityID; },
+		getGameClock: function() { return this.gameClock; },
+		getGameTick: function() { return this.gameTick; }
 	};
 })();

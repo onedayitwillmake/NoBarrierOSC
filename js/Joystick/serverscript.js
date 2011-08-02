@@ -21,11 +21,12 @@ require("../core/EntityController.js");
 require("../network/Client.js");
 require("../network/ServerNetChannel.js");
 require("../model/GameEntity.js");
-require("../model/WorldEntityDescription.js");
 
 require("./JoystickNamespace.js");
 require("./JoystickConstants.js");
+require("./JoystickGameEntity.js");
+require("./JoystickWorldEntityDescription.js");
 require("./ServerApp.js");
 
-var serverApp = new Joystick.ServerApp();
+var serverApp = new JoystickDemo.ServerApp();
 serverApp.startGameClock();

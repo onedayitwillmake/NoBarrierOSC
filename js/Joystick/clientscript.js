@@ -8,13 +8,9 @@
 (function(){
 	var onLoad = function( event ) {
 		var app = new JoystickDemo.ClientApp();
-
-
-//         document.getElementById("controller_container").style.width = window.innerWidth + "px";
-//         document.getElementById("controller_container").style.height = window.innerHeight + "px";
 		// Loop
 		(function loop() {
-//			app.update();
+			app.update();
 			window.requestAnimationFrame( loop, null );
 		})();
 	};

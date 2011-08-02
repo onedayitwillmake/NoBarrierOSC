@@ -91,8 +91,8 @@
 
             var top = (Math.sin(this._angle)*this._radius/2) + this._radius - this._nub.offsetWidth/2;
             var left = (Math.cos(this._angle)*this._radius/2) + this._radius - this._nub.offsetWidth/2;
-            this._nub.style.top = Math.round(top) + "px"
-            this._nub.style.left = Math.round(left) + "px"
+            this._nub.style.top = Math.round(top) + "px";
+            this._nub.style.left = Math.round(left) + "px";
         },
 
         /**
@@ -112,7 +112,10 @@
             // Recenter nub
             this._nub.style.top = Math.round(this._radius - this._nub.offsetWidth/2) + "px"
             this._nub.style.left = Math.round(this._radius - this._nub.offsetWidth/2) + "px"
-        }
+        },
+
+        ///// ACCESSORS
+        getAngle: function() { return this._angle; }
     };
 
     JoystickDemo.extend( JoystickDemo.controls.ThumbStickController, JoystickDemo.controls.Controller );

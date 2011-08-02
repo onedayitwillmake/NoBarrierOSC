@@ -22,7 +22,7 @@
          * Hit area padding
          * @type {Number}
          */
-        _buffer         : 25,
+        _buffer         : 20,
 
         /**
          * Setup event listeners and etc

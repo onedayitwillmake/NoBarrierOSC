@@ -29,8 +29,14 @@ Version:
 	// Retrieve the namespace
 	RealtimeMultiplayerGame.namespace("RealtimeMultiplayerGame.network");
 
-	RealtimeMultiplayerGame.ClientNetChannel = function( aDelegate ) {
+	RealtimeMultiplayerGame.ClientNetChannel = function( aDelegate, aHost, aPort ) {
 		this.setDelegate( aDelegate );
+
+        if(!aHost) { throw new Error("RealtimeMultiplayerGame.ClientNetChannel - No host url provided. Point to node server IP") }
+        if(!aPort) { throw new Error("RealtimeMultiplayerGame.ClientNetChannel - No aPort url provided. Aborting...") }
+
+        this.host = aHost;
+        this.port = aPort;
 		this.setupSocketIO();
 		this.setupCmdMap();
 		return this;
@@ -57,9 +63,18 @@ Version:
 
 		cmdMap								: {},				// Map the CMD constants to functions
 
+        /**
+         * @type {String} Server address - e.g localhost or 123.456.12.2 or http://mysite.com
+         */
+        host                                : "",
+        /**
+         * @type {String} Server port - e.g 8889
+         */
+        port                                : "",
+
 
 		setupSocketIO: function() {
-		    this.socketio = new io.Socket("localhost", {port: RealtimeMultiplayerGame.Constants.SERVER_SETTING.SOCKET_PORT, transports:['websocket', 'xhr-polling', 'jsonp-polling'], reconnect: false, rememberTransport: false});
+		    this.socketio = new io.Socket( this.host, {port: this.port, transports:['websocket'], reconnect: true, rememberTransport: false});
 			this.socketio.connect();
 
 			var that = this;
@@ -78,7 +93,7 @@ Version:
 
 	///// SocketIO Callbacks
 		onSocketConnect: function() {
-			console.log("(ClientNetChannel):onSocketConnect", arguments, this.socketio);
+			console.log("(ClientNetChannel):onSocketConnect", this.socketio);
 		},
 
 		/**
@@ -86,9 +101,6 @@ Version:
 		 * This is only called once, use the info to set some properties
 		 */
 		onSocketDidAcceptConnection: function(  aNetChannelMessage ) {
-
-			console.log("(ClientNetChannel)::onSocketDidAcceptConnection", aNetChannelMessage);
-
 			// Should not have received this msg
 			if(aNetChannelMessage.cmd != RealtimeMultiplayerGame.Constants.CMDS.SERVER_CONNECT) { throw "(ClientNetChannel):onSocketDidAcceptConnection recieved but cmd != SERVER_CONNECT ";}
 

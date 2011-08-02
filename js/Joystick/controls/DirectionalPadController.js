@@ -63,7 +63,8 @@ Abstract:
                 var dpadElement = this._htmlElement.children[i];
                 if(dpadElement == this._touchAreaHtmlElement) continue; // Don't add touch area as one of the controls
 
-                var type = this._htmlElement.children[i].id.substr(prefix.length);
+                var type = this._htmlElement.children[i].id.substr(prefix.length+1);
+                console.log(type)
                 this._buttons[type] = new JoystickDemo.controls.ButtonController( dpadElement )
             }
 
@@ -161,29 +162,32 @@ Abstract:
         /**
          * Retuns the status of the up button
          */
-        getUp: function() {
-            return this._buttons['up'].getIsDown();
-        },
+        getUp: function() { return this._buttons['up'].getIsDown(); },
 
         /**
          * Retuns the status of the down button
          */
-        getDown: function() {
-            return this._buttons['down'].getIsDown();
-        },
+        getDown: function() { return this._buttons['down'].getIsDown(); },
 
         /**
          * Retuns the status of the left button
          */
-        getLeft: function() {
-            return this._buttons['left'].getIsDown();
-        },
+        getLeft: function() { return this._buttons['left'].getIsDown(); },
 
         /**
          * Retuns the status of the right button
          */
-        getRight: function() {
-            return this._buttons['right'].getIsDown();
+        getRight: function() { return this._buttons['right'].getIsDown(); },
+
+        /**
+         * Returns the state of all 4 directional buttons
+         * @example
+         *  {up: true, down: false, left: true, right: false}
+         *  
+         * @return {Object}
+         */
+        getAll: function() {
+            return { up: this.getUp(), down: this.getDown(), left: this.getLeft(), right: this.getRight() };
         }
     }
 
