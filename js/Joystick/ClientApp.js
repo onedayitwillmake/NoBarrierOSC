@@ -22,7 +22,7 @@
 
         setup: function() {
             this.gameClockReal = new Date().getTime();
-		    this.netChannel = new RealtimeMultiplayerGame.ClientNetChannel( this, "192.168.1.6", "8081" );
+		    this.netChannel = new RealtimeMultiplayerGame.ClientNetChannel( this, "10.29.62.170", "8081" );
 
             this._thumbStickControllerLeft = new JoystickDemo.controls.ThumbStickController("left");
 			this._button = new JoystickDemo.controls.ButtonController( document.getElementById('dpad_button_right'), true )
@@ -38,7 +38,6 @@
 		update: function() {
 			this.updateClock();
 
-			console.log(this._button.getIsDown())
 			this.netChannel.addMessageToQueue( false, RealtimeMultiplayerGame.Constants.CMDS.PLAYER_UPDATE, {
                 analog: this._thumbStickControllerLeft.getAngle360(),
 				button: this._button.getIsDown()

@@ -74,7 +74,7 @@ Version:
 
 
 		setupSocketIO: function() {
-		    this.socketio = new io.Socket( this.host, {port: this.port, transports:['websocket'], reconnect: true, rememberTransport: false});
+		    this.socketio = new io.Socket( this.host, {port: this.port, transports:['websocket'], reconnect: false, rememberTransport: false});
 			this.socketio.connect();
 
 			var that = this;

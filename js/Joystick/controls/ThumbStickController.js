@@ -5,6 +5,7 @@
 
 
 		this.elementSuffix = elementSuffix;
+        this._hitAreaBuffer *= 3;
         this.setup();
     }; 
 
@@ -49,10 +50,9 @@
             var that = this;
 
 
-
             // Listen for mouse events
             var that = this;
-            this.addListener( this._touchAreaHtmlElement, "mousedown", function(e){ that.onMouseDown(e);} );
+            //this.addListener( this._touchAreaHtmlElement, "mousedown", function(e){ that.onMouseDown(e);} );
             this.addListener( this._touchAreaHtmlElement, "touchstart", function(e){ that.onTouchStart(e);} );
         },
 
@@ -61,11 +61,28 @@
          * @param {TouchEvent} e
          */
         onTouchStart: function(e) {
-            this._touchIdentifier = e.touches[0].identifier;
+            console.log("TOUCH")
+            if( this._touchIdentifier !== 0 ) {
+                console.log("ThumbStickController::onTouchStart - Already have a touch '"+this._touchIdentifier+"' - Aborting...");
+                return;
+            }
+            
+            var validTouches  = this.getValidTouches(e.touches);
+
+            if( validTouches[0] ) {
+                this._touchIdentifier = validTouches[0].identifier;
+            } else {
+                console.log("ThumbstickController::onTouchStart - No valid touches found!");
+                return;
+            }
+
+
+            console.log( validTouches.length);
+            console.log( this._touchIdentifier );
 
             // Inform all buttons
-//            this.relayTouchToButtons( e.touches[0], 'touchmove' );
-			this.onTouchMove(e)
+            //this.relayTouchToButtons( e.touches[0], 'touchmove' );
+			this.onTouchMove(e);
 
             var that = this;
             this.addListener( document, "touchmove", function(e){ that.onTouchMove(e);} );
@@ -104,6 +121,7 @@
 
 
 			this._angle = 0;
+            this._touchIdentifier = 0;
 
             // Clean up event listeners
             this.removeListener( document, "touchmove" );
@@ -131,20 +149,6 @@
                 if( !this._buttons.hasOwnProperty(prop) ) return;
                 this._buttons[prop]['on'+type]( touchOfInterest );
             }
-        },
-
-        /**
-         * Loops through the touches to check if any of the touches in the touchlist match our touchIdentifier
-         * @param {Array}   A touch list from the event - e.changedTouches | e.touches | e.targetedTouches
-         * @return {Touch} A touch event that matches our identifier
-         */
-        getTouchOfInterest: function(touchList) {
-            for(var i = 0; i < touchList.length; i++) {
-                if( touchList[i].identifier === this._touchIdentifier )
-                    return touchList[i];
-            }
-
-            return null;
         },
 
         /**

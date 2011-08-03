@@ -1,9 +1,21 @@
+/**
+File:
+	ServerApp.js
+Created By:
+	Mario Gonzalez
+Project:
+	NoBarrierOSC
+Abstract:
+	This class represents the server side application for NoBarrierOSC's joystick implementation
 
+Basic Usage:
+ 	var serverApp = new JoystickDemo.ServerApp();
+    serverApp.startGameClock();
+Version:
+	1.0
+*/
 (function(){
-	var OSC = require('../lib/osc');
-
 	JoystickDemo.ServerApp = function() {
-		this.playerInfoBuffer = new SortedLookupTable();
 		this.setupCmdMap();
 	};
 
@@ -16,15 +28,24 @@
 		intervalGameTick		: null,											// setInterval reference
 
 		netChannel				: null,
-		oscClient				: null,
 		cmdMap					: {},					// Map the CMD constants to functions
 		nextEntityID			: 0,					// Incremented for everytime a new object is created
+
+        /**
+         * @type {JoystickDemo.JoystickGameEntity}
+         */
+        joystick                : null,
+
+        /**
+         * @type {JoystickDemo.JoystickGameEntity}
+         */
+        cabinet                : null,
 
 		startGameClock: function() {
 			this.entityController = new RealtimeMultiplayerGame.Controller.EntityController();
 			this.setupNetChannel();
-			this.oscClient = new OSC.Client(JoystickDemo.Constants.OSC_CONFIG.PORT, JoystickDemo.Constants.OSC_CONFIG.ADDRESS);
-			var that = this;
+
+            var that = this;
 			this.intervalGameTick = setInterval( function(){ that.update() }, Math.floor( 1000/this.targetFramerate ));
 		},
 
@@ -73,15 +94,36 @@
 		},
 
         /**
-         * Called after a connection has been established
+         * Called after a connection has been established.
+         * Return true to allow the client to connect, or false to prevent the client from joining
          * @param {String} aClientid
-         * @param data
+         * @param {Object} data
          */
 		shouldAddPlayer: function( aClientid, data ) {
-			var playerEntity = new JoystickDemo.JoystickGameEntity( this.getNextEntityID(), aClientid );
-            playerEntity.entityType = data.payload.type;
-			this.playerInfoBuffer.setObjectForKey([], aClientid);
-			this.entityController.addPlayer( playerEntity );
+            var entity = null;
+
+            // Try to add joystick - 1 active per game
+            if( data.payload.type === "joystick" ) {
+                if( this.joystick ) {
+                    return false;
+                } else {
+                    entity = this.joystick = new JoystickDemo.JoystickGameEntity( this.getNextEntityID(), aClientid );
+                }
+            }
+
+            // Try to add cabinate - 1 per game
+            if( data.payload.type === "cabinet" ) {
+                if( this.cabinet ) {
+                    return false;
+                } else {
+                    entity = this.cabinet = new JoystickDemo.JoystickGameEntity( this.getNextEntityID(), aClientid );
+                }
+            }
+
+            entity.entityType = data.payload.type;
+			this.entityController.addPlayer( entity );
+
+            return true;
 		},
 
         /**
@@ -99,12 +141,13 @@
          * @param {String} clientid Id of the disconnected client
          */
 		shouldRemovePlayer: function( clientid ) {
-			var oscMessage = new OSC.Message("/nodejs/" + clientid);
-				oscMessage.append(["drop", String(clientid)]);
-			this.oscClient.send(oscMessage);
-
-			this.playerInfoBuffer.remove( clientid );
-			this.entityController.removePlayer( clientid );
+            var entity = this.entityController.getEntityWithid( clientid );
+            if( entity ) {
+                if(entity == this.joystick) this.joystick = null;
+                else if( entity == this.cabinet) this.cabinet = null;
+                
+                this.entityController.removePlayer( clientid );
+            }
 		},
 
 	   	log: function() { console.log.apply(console, arguments); },

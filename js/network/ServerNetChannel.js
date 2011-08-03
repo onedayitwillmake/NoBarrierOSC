@@ -112,17 +112,26 @@ Version:
 		 * @param clientConnection
 		 */
 		onSocketConnection: function( clientConnection ) {
+            var aClient = new RealtimeMultiplayerGame.network.Client( clientConnection, this.getNextClientID() );
 
-			var aClient = new RealtimeMultiplayerGame.network.Client( clientConnection, this.getNextClientID() );
+            // Send the first message back to the client, which gives them a clientid
+            var connectMessage = new RealtimeMultiplayerGame.model.NetChannelMessage( ++this.outgoingSequenceNumber, aClient.getClientid(), true, RealtimeMultiplayerGame.Constants.CMDS.SERVER_CONNECT, { gameClock: this.delegate.getGameClock() });
+            connectMessage.messageTime = this.delegate.getGameClock();
+            aClient.getConnection().send( connectMessage );
 
-			// Send the first message back to the client, which gives them a clientid
-			var connectMessage = new RealtimeMultiplayerGame.model.NetChannelMessage( ++this.outgoingSequenceNumber, aClient.getClientid(), true, RealtimeMultiplayerGame.Constants.CMDS.SERVER_CONNECT, { gameClock: this.delegate.getGameClock() });
-			connectMessage.messageTime = this.delegate.getGameClock();
-			aClient.getConnection().send( connectMessage );
-
-			// Add to our list of connected users
-			this.clients.setObjectForKey( aClient, aClient.getSessionId() );
+            // Add to our list of connected users
+            this.clients.setObjectForKey( aClient, aClient.getSessionId() );
 		},
+
+
+        /**
+         * Force closes a connection
+         * @param clientConnection
+         */
+        closeConnection: function( clientConnection ) {
+            this.socketio.clients[clientConnection.sessionId].send({ event: 'disconnect' });
+            this.socketio.clients[clientConnection.sessionId].connection.end();
+        },
 
 		/**
 		 * Callback from socket.io when a client has disconnected
@@ -155,7 +164,8 @@ Version:
 			if(client) {
 				client.onMessage( data );
 			} else {
-				console.log("(NetChannel)::onSocketMessage - no such client!");
+				console.log("(NetChannel)::onSocketMessage - no such client! - Dropping");
+                this.closeConnection( connection );
 				return;
 			}
 
@@ -185,9 +195,12 @@ Version:
 		 * @param data
 		 */
 		onPlayerJoined: function( client, data ) {
-			console.log( client.getClientid() + " joined the game!");
-			this.delegate.shouldAddPlayer( client.getClientid(), data);
-			client.getConnection().send( data );
+			var wasAccepted = this.delegate.shouldAddPlayer( client.getClientid(), data);
+            if(wasAccepted) {
+                client.getConnection().send( data );
+            } else {
+                this.closeConnection( client.getConnection() )
+            }
 		},
 
 	// Accessors

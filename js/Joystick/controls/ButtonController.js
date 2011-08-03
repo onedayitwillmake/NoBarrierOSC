@@ -12,9 +12,10 @@
 			throw new Error("anHTMLElement cannot be null!");
 		}
 
-        this._htmlElement = anHTMLElement;
+        this._touchAreaHtmlElement = this._htmlElement = anHTMLElement;
 		this._catchOwnEvents = shouldCatchOwnEvents;
         this.setup();
+        this.id == 1;
     };
 
     JoystickDemo.controls.ButtonController.prototype = {
@@ -22,6 +23,7 @@
          * @type {Boolean}
          */
         _isDown         : false,
+        id:1,
 
         /**
          * @type {HTMLElement}
@@ -29,10 +31,9 @@
         _htmlElement    : null,
 
         /**
-         * Hit area padding
-         * @type {Number}
+         * @type {HTMLElement}
          */
-        _buffer         : 20,
+        _touchAreaHtmlElement    : null,
 
         /**
          * Setup event listeners and etc
@@ -41,12 +42,15 @@
 			if(!this._catchOwnEvents) return;
 
 			var that = this;
-            this.addListener( this._htmlElement, 'mousedown', function(e){ that.onMouseDown(e);} );
-            this.addListener( this._htmlElement, 'touchstart', function(e){ that.ontouchstart(e);} );
+            //this.addListener( this._touchAreaHtmlElement, 'mousedown', function(e){ that.onMouseDown(e);} );
+            this.addListener( this._touchAreaHtmlElement, 'touchstart', function(e){ that.ontouchstart(e);} );
         },
 
 		onMouseDown: function(e) {
 			this.ontouchstart(e);
+
+
+            if(this._)
 
 			var that = this;
 			this.addListener( document, 'mouseup', function(e){ that.ontouchend(e);} );
@@ -57,13 +61,24 @@
          * @param {MouseEvent} e
          */
         ontouchstart: function(e) {
-            this._isDown = true;
-            this._htmlElement.style.opacity = (this._isDown) ? 1 : 0.25;
 
-			var that = this;
+            // If catchOwnEvents - verfiy that the touch was over over us - and store the identifier
 			if(this._catchOwnEvents) {
+
+                var validTouches  = this.getValidTouches(e.touches);
+                if( validTouches[0] ) this._touchIdentifier = validTouches[0].identifier;
+                else {
+                    console.log("ThumbstickController::onTouchStart - No valid touches found!");
+                    return;
+                }
+
+                var that = this;
+                this.ontouchmove(validTouches[0]);
 				this.addListener( document, 'touchend', function(e){ that.ontouchend(e);} );
 			}
+
+            this._isDown = true;
+            this._htmlElement.style.opacity = (this._isDown) ? 1 : 0.25;
         },
 
         /**
@@ -80,6 +95,13 @@
          * @param {MouseEvent} e
          */
         ontouchend: function(e) {
+
+            // If catching own events - verify that this touch was ours
+            if( this._catchOwnEvents && !this.getTouchOfInterest(e.changedTouches)) {
+                console.log("ButtonController::ontouchend - Touch ignored" + String(this.getTouchOfInterest(e.changedTouches)));
+                return;
+            }
+            
             this._isDown = false;
             this._htmlElement.style.opacity = 0.25;
 
@@ -88,31 +110,7 @@
 				this.removeListener( document, 'touchend' );
 			}
 
-			console.log("touchup")
-        },
-
-        /**
-         * Hit test against touch
-         * @param {Touch} e
-         * @return Boolean
-         */
-        hitTest: function( e ) {
-            var radius = this._htmlElement.offsetWidth/2;
-
-            // Get the offset of our element
-            var offset = this.getOffset(this._htmlElement);
-
-            // Offset it by the stage position
-            var layerX = e.screenX - offset.left;
-            var layerY = e.screenY - offset.top;
-
-            // Convert to center based
-            var x = Math.round(layerX - radius);
-            var y = Math.round(layerY - radius);
-
-            var dist = Math.sqrt(x*x + y*y);
-
-            return dist < (radius+this._buffer);
+			//console.log("touchup")
         },
 
         ///// ACCESSORS

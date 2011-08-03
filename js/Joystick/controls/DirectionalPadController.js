@@ -143,20 +143,6 @@ Abstract:
             }
         },
 
-        /**
-         * Loops through the touches to check if any of the touches in the touchlist match our touchIdentifier
-         * @param {Array}   A touch list from the event - e.changedTouches | e.touches | e.targetedTouches
-         * @return {Touch} A touch event that matches our identifier
-         */
-        getTouchOfInterest: function(touchList) {
-            for(var i = 0; i < touchList.length; i++) {
-                if( touchList[i].identifier === this._touchIdentifier )
-                    return touchList[i];
-            }
-
-            return null;
-        },
-
 
         /**
          * Retuns the status of the up button
