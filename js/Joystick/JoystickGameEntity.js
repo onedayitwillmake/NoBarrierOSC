@@ -50,28 +50,21 @@ Version:
          * @param entityDescription
          */
         parseJoystickData: function( entityDescription ) {
-            this._up = entityDescription.up;
-            this._down = entityDescription.down;
-            this._left = entityDescription.left;
-            this._right = entityDescription.right;
-            this._angle = entityDescription.thumbstick;
+            this._analog = entityDescription.analog;
+            this._button = entityDescription.button;
         },
 
 		/**
 		 * Construct an entity description for this object, it is essentually a CSV so you have to know how to read it on the receiving end
 		 * @param wantsFullUpdate	If true, certain things that are only sent when changed are always sent
 		 */
-		constructEntityDescription: function(gameTick, wantsFullUpdate)
-		{
+		constructEntityDescription: function(gameTick, wantsFullUpdate) {
 			// Note: "~~" is just a way to round the value without the Math.round function call
 			var returnString = this.entityid;
 				returnString += "," + this.clientid;
 				returnString += "," + this.entityType;
-				returnString += "," + ~~this._up;
-				returnString += "," + ~~this._down;
-				returnString += "," + ~~this._left;
-				returnString += "," + ~~this._right;
-				returnString += "," + ~~this._angle;
+				returnString += "," + ~~this._analog;
+				returnString += "," + ~~this._button;
 
 			return returnString;
 		}

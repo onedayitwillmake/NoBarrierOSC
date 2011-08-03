@@ -43,7 +43,7 @@ Abstract:
         /**
          * @type {HTMLElement}
          */
-        _htmlElement: null,
+        _touchAreaHtmlElement: null,
 
         /**
          * @type {HTMLElement}
@@ -64,8 +64,7 @@ Abstract:
                 if(dpadElement == this._touchAreaHtmlElement) continue; // Don't add touch area as one of the controls
 
                 var type = this._htmlElement.children[i].id.substr(prefix.length+1);
-                console.log(type)
-                this._buttons[type] = new JoystickDemo.controls.ButtonController( dpadElement )
+                this._buttons[type] = new JoystickDemo.controls.ButtonController( dpadElement, false )
             }
 
 

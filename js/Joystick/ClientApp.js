@@ -1,8 +1,6 @@
 
 (function(){
 	JoystickDemo.ClientApp = function() {
-        console.log(BASIL, window);
-        console.log(new Date().getTime())
         this.setup();
 	};
 
@@ -18,17 +16,16 @@
 		netChannel				: null,											// ClientNetChannel instance
 		cmdMap					: {},											// Map some custom functions if wnated
 
-        _thumbStickController   : null,
+        _thumbStickControllerLeft   : null,
 		_mousePosition			: {},		// Actual mouse position
 		_mousePositionNormalized: {},		// Mouse position 0-1
 
         setup: function() {
             this.gameClockReal = new Date().getTime();
-		    this.netChannel = new RealtimeMultiplayerGame.ClientNetChannel( this, "10.0.2.1", "8081" );
+		    this.netChannel = new RealtimeMultiplayerGame.ClientNetChannel( this, "192.168.1.6", "8081" );
 
-            console.log(this.netChannel)
-            this._thumbStickController = new JoystickDemo.controls.ThumbStickController();
-            this._dpad = new JoystickDemo.controls.DirectionalPadController();
+            this._thumbStickControllerLeft = new JoystickDemo.controls.ThumbStickController("left");
+			this._button = new JoystickDemo.controls.ButtonController( document.getElementById('dpad_button_right'), true )
 
             // Cancel
             document.addEventListener("touchstart", function(e) { e.preventDefault()}, true);
@@ -37,15 +34,14 @@
             document.addEventListener("touchcancel", function(e) { e.preventDefault()}, true);
         },
 
+		count: 0,
 		update: function() {
 			this.updateClock();
 
+			console.log(this._button.getIsDown())
 			this.netChannel.addMessageToQueue( false, RealtimeMultiplayerGame.Constants.CMDS.PLAYER_UPDATE, {
-                up: this._dpad.getUp(),
-                down: this._dpad.getDown(),
-                left: this._dpad.getLeft(),
-                right: this._dpad.getRight(),
-                thumbstick: Math.round( this._thumbStickController.getAngle() * 180/Math.PI)
+                analog: this._thumbStickControllerLeft.getAngle360(),
+				button: this._button.getIsDown()
             } );
 			this.netChannel.tick();
 		},

@@ -1,9 +1,19 @@
 (function(){
     JoystickDemo.namespace("JoystickDemo.controls");
-    JoystickDemo.controls.ButtonController = function( anHTMLElement ){
+
+	/**
+	 * Creates a new ButtonController, if shouldCatchOwnEvents it can handle its own touch events
+	 * @param anHTMLElement
+	 * @param shouldCatchOwnEvents
+	 */
+    JoystickDemo.controls.ButtonController = function( anHTMLElement, shouldCatchOwnEvents ){
         JoystickDemo.controls.ButtonController.superclass.constructor.call(this);
-        
+		if(!anHTMLElement) {
+			throw new Error("anHTMLElement cannot be null!");
+		}
+
         this._htmlElement = anHTMLElement;
+		this._catchOwnEvents = shouldCatchOwnEvents;
         this.setup();
     };
 
@@ -28,15 +38,32 @@
          * Setup event listeners and etc
          */
         setup: function( ) {
+			if(!this._catchOwnEvents) return;
+
+			var that = this;
+            this.addListener( this._htmlElement, 'mousedown', function(e){ that.onMouseDown(e);} );
+            this.addListener( this._htmlElement, 'touchstart', function(e){ that.ontouchstart(e);} );
         },
+
+		onMouseDown: function(e) {
+			this.ontouchstart(e);
+
+			var that = this;
+			this.addListener( document, 'mouseup', function(e){ that.ontouchend(e);} );
+		},
 
         /**
          * Mousedown callback
          * @param {MouseEvent} e
          */
         ontouchstart: function(e) {
-            this._isDown = this.hitTest(e);
+            this._isDown = true;
             this._htmlElement.style.opacity = (this._isDown) ? 1 : 0.25;
+
+			var that = this;
+			if(this._catchOwnEvents) {
+				this.addListener( document, 'touchend', function(e){ that.ontouchend(e);} );
+			}
         },
 
         /**
@@ -55,6 +82,13 @@
         ontouchend: function(e) {
             this._isDown = false;
             this._htmlElement.style.opacity = 0.25;
+
+			if(this._catchOwnEvents) {
+				this.removeListener( document, 'mouseup' );
+				this.removeListener( document, 'touchend' );
+			}
+
+			console.log("touchup")
         },
 
         /**
