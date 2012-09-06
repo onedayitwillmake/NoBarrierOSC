@@ -1,5 +1,34 @@
+require("../lib/SortedLookupTable.js");
+require("../nobarrierosc/RealtimeMutliplayerGame.js");
+require("../nobarrierosc/Point.js");
+require("../nobarrierosc/Constants.js");
+require("../nobarrierosc/NetChannelMessage.js");
+require("../nobarrierosc/EntityController.js");
+require("../nobarrierosc/Client.js");
+require("../nobarrierosc/ServerNetChannel.js");
+require("../nobarrierosc/GameEntity.js");
+require("../nobarrierosc/WorldEntityDescription.js");
+
+/**
+ File:
+    DemoNamespace.js
+ Created By:
+    Mario Gonzalez
+ Project:
+    NoBarrierOSC
+ Abstract:
+    This is simple example of a server side application of a NoBarrierOSC project
+    It receives messages from the clients, in the form of XY positions and transmits them to the out via OSC to any listening application
+
+ Basic Usage:
+    node js/demo/ServerApp.js
+ Version:
+    2.0
+ */
 
 (function(){
+	require("./DemoNamespace.js");
+	require("./DemoConstants.js");
 	var OSC = require('../lib/osc');
 
 	Demo.ServerApp = function() {
@@ -24,18 +53,23 @@
 
 		startGameClock: function() {
 
-			this.entityController = new RealtimeMultiplayerGame.Controller.EntityController();
 			this.setupNetChannel();
+
+			this.entityController = new RealtimeMultiplayerGame.Controller.EntityController();
+
 			this.oscClient = new OSC.Client(Demo.Constants.OSC_CONFIG.PORT, Demo.Constants.OSC_CONFIG.ADDRESS);
-			this.gameClockReal = new Date().getTime();
 
 			var that = this;
+			this.gameClockReal = new Date().getTime();
 			this.intervalGameTick = setInterval( function(){ that.update() }, Math.floor( 1000/this.targetFramerate ));
 		},
 
 		// Methods
 		setupNetChannel: function() {
-			this.netChannel = new RealtimeMultiplayerGame.network.ServerNetChannel( this );
+			this.netChannel = new RealtimeMultiplayerGame.network.ServerNetChannel( this, Demo.Constants.SERVER_SETTING.SOCKET_HOST, Demo.Constants.SERVER_SETTING.SOCKET_PORT );
+
+			// Since you'll be making fancier stuff - place the rest of the netchannel initialization here
+		    // For example setting up the callbacks and etc...
 		},
 
 		/**
@@ -141,3 +175,7 @@
 		}
 	};
 })();
+
+
+var serverApp = new Demo.ServerApp();
+serverApp.startGameClock();

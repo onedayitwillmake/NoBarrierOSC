@@ -36,11 +36,15 @@ Version:
 	 * Creates a new ServerNetChannel instance
 	 * @param {RealtimeMultiplayerGame.network.ServerNetChannelDelegateProtocol} aDelegate A delegate that conforms to RealtimeMultiplayerGame.network.ServerNetChannelDelegateProtocol
 	 */
-	RealtimeMultiplayerGame.network.ServerNetChannel = function( aDelegate ) {
+	RealtimeMultiplayerGame.network.ServerNetChannel = function( aDelegate, aServerHost, aServerPort  ) {
 		this.clients = new SortedLookupTable();
 
+		if( arguments.length < 3 ) {
+			throw new Error("\n\n !! ServerNetChannel - Cannot create ServerNetChannel without a  aDelegate, aServerHost, aServerPort! (pass in via constructor) \n\n");
+		}
+
 		this.setDelegate( aDelegate );
-		this.setupSocketIO();
+		this.setupSocketIO( aServerHost, aServerPort );
 		this.setupCmdMap();
 		return this;
 	};
@@ -56,10 +60,10 @@ Version:
 		/**
 		 * Initializes socket.io
 		 */
-		setupSocketIO: function() {
+		setupSocketIO: function( aServerHost, aServerPort ) {
 			// Create a minimal http server to listen
 			this.httpserver = http.createServer(function(req, res) {});
-			this.httpserver.listen( RealtimeMultiplayerGame.Constants.SERVER_SETTING.SOCKET_PORT );
+			this.httpserver.listen( aServerPort );
 			// Start socket.io
 			this.socketio = io.listen(this.httpserver);
 
@@ -115,6 +119,8 @@ Version:
 		onSocketConnection: function( clientConnection ) {
 
 			var aClient = new RealtimeMultiplayerGame.network.Client( clientConnection, this.getNextClientID() );
+
+			console.dir( aClient );
 
 			// Send the first message back to the client, which gives them a clientid
 			var connectMessage = new RealtimeMultiplayerGame.model.NetChannelMessage( ++this.outgoingSequenceNumber, aClient.getClientid(), true, RealtimeMultiplayerGame.Constants.CMDS.SERVER_CONNECT, { gameClock: this.delegate.getGameClock() });

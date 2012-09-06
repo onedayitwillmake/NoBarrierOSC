@@ -1,9 +1,24 @@
+/**
+ File:
+    ClientApp.js
+ Created By:
+    Mario Gonzalez
+ Project:
+    NoBarrierOSC
+ Abstract:
+    This is simple example of a client side application of a NoBarrierOSC project
+    It captures the mouse position, and sends it to the server
 
+ Basic Usage:
+
+ Version:
+    2.0
+ */
 (function(){
 
 	Demo.ClientApp = function() {
 		this.gameClockReal = new Date().getTime();
-		this.netChannel = new RealtimeMultiplayerGame.ClientNetChannel( this );
+		this.netChannel = new RealtimeMultiplayerGame.ClientNetChannel( this, Demo.Constants.SERVER_SETTING.SOCKET_HOST, Demo.Constants.SERVER_SETTING.SOCKET_PORT );
 
 		this.initMouseEvents();
 	};
@@ -178,4 +193,40 @@
 			first.target.dispatchEvent(fakeMouseEvent);
 		}
 	};
+}());
+
+/**
+ * HELPER METHODS
+ */
+(function(){
+
+	/**
+	 * Called when the page has finished loading
+	 * @param event
+	 */
+	var onLoad = function( event ) {
+		var app = new Demo.ClientApp();
+
+		// Loop
+		(function loop() {
+			app.update();
+			window.requestAnimationFrame( loop, null );
+		})();
+	};
+
+	/**
+	 * HTML5 Shim for requestAnimationFrameq
+	 */
+	if (!window.requestAnimationFrame) {
+		window.requestAnimationFrame = ( function() {
+			return window.webkitRequestAnimationFrame ||
+					window.mozRequestAnimationFrame ||
+					window.oRequestAnimationFrame ||
+					window.msRequestAnimationFrame ||
+					function(/* function FrameRequestCallback */ callback, /* DOMElement Element */ element) {
+						window.setTimeout(callback, 1000 / 60);
+					};
+		})();
+	}
+	window.addEventListener('DOMContentLoaded', onLoad, true);
 }());
